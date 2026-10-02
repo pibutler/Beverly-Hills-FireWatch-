@@ -23,6 +23,10 @@
   24-hour hour-by-hour wind, gust and humidity timeline from the NWS gridpoint forecast; map trimmed to three base layers
   (satellite with street names as default, USGS topo, streets); wind arrow at the watch point; fewer, grouped map layers;
   fire and camera distances now follow the selected area.
+  Phase 5 (2026-10-02): single page in the Redondo Beach Storm Track style. Crew/Planning toggle removed. "Today at a glance"
+  panel with four gauges (24-hour readiness with deployment tier, wind with gust tick, humidity, daylight), forecast-peak triangles,
+  clickable status chips, collapsible cards remembered per device, How to read this in every card, Owner's Manual, Copy briefing.
+  Deployment calculator follows the worst forecast hour until a slider is moved.
   Patrick Butler. Home: apps/trousdale-wildfire-watch/ (F49).
   Inlined library: Leaflet 1.9.4 (BSD 2-Clause) — between the leaflet-css / leaflet-js markers below, license kept.
   Map data: OpenStreetMap contributors (ODbL) via Overpass; tiles from Esri, USGS, OSM.
@@ -693,68 +697,132 @@ svg.leaflet-image-layer.leaflet-interactive path {
 /* leaflet-css-end */</style>
 <style>
 :root{
-  --bg:#0b1220;--panel:#111a2e;--ink:#e5e7eb;--muted:#9aa7bd;--line:#26334d;--card:#0f172a;--head:#0f172a;--headink:#f8fafc;--sub:#a8b3c7;
-  --note:#1c2740;--noteink:#c7d0e0;--ok:#052e16;--okink:#86efac;--okline:#14532d;--flagbg:#3b1d0b;--link:#93c5fd;--btn:#1e293b;--btnink:#f1f5f9;--btnline:#475569;
-  --red:#b91c1c;--orange:#c2410c;--table:#0f172a;--th:#162036;--popupbg:#111a2e;--popupink:#e5e7eb;
+  --bg:#0d1520;--panel:#15202e;--panel2:#1b2a3b;--line:#2a3b50;--ink:#e6edf5;--muted:#93a4b8;--head:#0a111a;--card:#15202e;
+  --note:#1b2a3b;--noteink:#c7d0e0;--ok:#052e16;--okink:#86efac;--okline:#14532d;--flagbg:#3b1d0b;--link:#7cc4ff;--btn:#1b2a3b;--btnink:#e6edf5;--btnline:#2a3b50;
+  --red:#b91c1c;--orange:#c2410c;--table:#15202e;--th:#1b2a3b;--popupbg:#15202e;--popupink:#e6edf5;
+  --okc:#3fbf7f;--warnc:#f2b632;--badc:#ef5350;--info:#7e8ce0;--title:#cfe3f7;
   --lvred:rgba(220,38,38,.42);--lvorange:rgba(234,88,12,.30);
 }
 :root[data-theme="light"]{
-  --bg:#ffffff;--panel:#ffffff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--card:#fafafa;--head:#1e293b;--headink:#ffffff;--sub:#cbd5e1;
-  --note:#f3f4f6;--noteink:#4b5563;--ok:#ecfdf5;--okink:#166534;--okline:#bbf7d0;--flagbg:#fff7ed;--link:#1d4ed8;--btn:#ffffff;--btnink:#1e293b;--btnline:#94a3b8;
-  --table:#ffffff;--th:#f8fafc;--popupbg:#ffffff;--popupink:#111827;
+  --bg:#eef2f6;--panel:#ffffff;--panel2:#f3f6f9;--line:#d5dce5;--ink:#111827;--muted:#5b6676;--head:#ffffff;--card:#ffffff;
+  --note:#f3f4f6;--noteink:#4b5563;--ok:#ecfdf5;--okink:#166534;--okline:#bbf7d0;--flagbg:#fff7ed;--link:#1d4ed8;--btn:#ffffff;--btnink:#1e293b;--btnline:#b8c2cf;
+  --table:#ffffff;--th:#f3f6f9;--popupbg:#ffffff;--popupink:#111827;--okc:#16894f;--warnc:#b7791f;--badc:#c62828;--title:#0d3b66;
   --lvred:rgba(220,38,38,.22);--lvorange:rgba(234,88,12,.18);
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:1.45}
-header{background:var(--head);color:var(--headink);padding:18px 24px 14px;padding-top:calc(18px + env(safe-area-inset-top, 0px));border-bottom:1px solid var(--line)}
-header h1{margin:0 0 4px;font-size:28px;line-height:1.2}
-.sub{color:var(--sub);font-size:15px}
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
-button,select{font:inherit;font-size:15px;padding:7px 14px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink);cursor:pointer}
-button:hover{filter:brightness(1.15)}
-button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45}
+a{color:var(--link)}
+header{background:var(--head);border-bottom:1px solid var(--line);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top, 0px))}
+@media (min-width:760px){header{position:sticky;top:0;z-index:1100}}
+.hrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto}
+header h1{font-size:20px;margin:0;letter-spacing:.3px;line-height:1.2}
+header h1 small{display:block;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0}
+.hdr-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.arow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;max-width:1200px;margin:8px auto 0}
+button,select{font:inherit;font-size:14px;padding:6px 11px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink);cursor:pointer}
+button:hover{border-color:var(--link)}
+button:focus-visible,select:focus-visible,a:focus-visible,.card>h2:focus-visible,summary:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+button.primary{background:#2f8fe0;border-color:#2f8fe0;color:#fff;font-weight:600}
 button.on{background:#c2410c;color:#fff;border-color:#c2410c}
-.viewtoggle{display:inline-flex;border:1px solid var(--btnline);border-radius:8px;overflow:hidden}
-.viewtoggle button{border:0;border-radius:0;font-weight:600}
-.viewtoggle button+button{border-left:1px solid var(--btnline)}
-main{max-width:1100px;margin:0 auto;padding:16px 24px 40px;padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px))}
-section{margin:26px 0}
-h2{font-size:22px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}
-h3{font-size:17px;margin:14px 0 6px}
-.note{background:var(--note);color:var(--noteink);padding:12px 14px;border-radius:8px}
-.ok{background:var(--ok);color:var(--okink);padding:12px 14px;border-radius:8px;border:1px solid var(--okline)}
-.alert{color:#fff;padding:16px 18px;border-radius:10px;margin-bottom:10px}
-.alert.red{background:var(--red)}
-.alert.orange{background:var(--orange)}
-.alert .ev{font-size:24px;font-weight:700;margin:0 0 4px}
-.alert details{margin-top:8px}
+#areaSelect{font-size:15px;font-weight:600;max-width:100%}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:700;font-size:12px;letter-spacing:.4px;border:0;background:var(--orange);color:#fff;margin-left:4px}
+.b-ok{background:#3fbf7f;color:#06210f}.b-warn{background:#f2b632;color:#2b1d00}.b-bad{background:#ef5350;color:#fff}.b-info{background:#7e8ce0;color:#fff}.b-muted{background:var(--line);color:var(--ink)}
+#overall{font-size:13px;padding:4px 12px}
+.health{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:12px;color:var(--muted)}
+.health span{white-space:nowrap}
+.health .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#64748b;vertical-align:-1px;margin-right:4px}
+.health .dot.on{background:#22c55e}
+main{max-width:1200px;margin:0 auto;padding:12px 16px 30px}
+#overallSimple{font-size:14px;color:var(--muted);margin:0 0 10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;min-width:0}
+.card>h2{font-size:14px;margin:0 0 10px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;text-transform:uppercase;letter-spacing:.6px;color:var(--title)}
+.card>h2 .src{font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin-left:auto;text-align:right}
+.card[data-collapse]>h2{cursor:pointer;user-select:none}
+.card[data-collapse]>h2::before{content:'▾';display:inline-block;color:var(--muted);transition:transform .15s}
+.card.collapsed>h2::before{transform:rotate(-90deg)}
+.card.collapsed>.cbody{display:none}
+.card.collapsed{padding-bottom:4px}
+.card.collapsed>h2{margin-bottom:6px}
+.asof{font-size:12px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+h2.stale{color:#f59e0b !important}
+.stale-line{color:#f59e0b}
+h3{font-size:16px;margin:14px 0 6px}
+.note{background:var(--note);color:var(--noteink);padding:10px 12px;border-radius:8px}
+.ok{background:var(--ok);color:var(--okink);padding:10px 12px;border-radius:8px;border:1px solid var(--okline)}
+.small{font-size:14px;color:var(--muted)}
+.muted{color:var(--muted)}
+/* gauges */
+.gauge-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 22px}
+@media (max-width:820px){.gauge-row{grid-template-columns:minmax(0,1fr)}}
+.gauge-wrap{display:flex;align-items:center;gap:12px}
+.gauge-wrap svg{flex:0 0 auto}
+.gauge-txt{flex:1 1 auto;min-width:0}
+.gauge-title{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin:0 0 2px}
+.gauge-status{font-size:21px;font-weight:800;letter-spacing:.3px;margin:0 0 2px}
+.gauge-status.g-ok{color:var(--okc)}.gauge-status.g-warn{color:var(--warnc)}.gauge-status.g-bad{color:var(--badc)}
+.gauge-val{font-size:16px;font-weight:600;margin:0 0 3px}
+.gauge-when{font-size:14px;margin:0 0 2px}
+.gauge-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.gauge-needle{transition:transform 1s cubic-bezier(.34,1.4,.64,1)}
+@media (prefers-reduced-motion:reduce){.gauge-needle{transition:none}#thresholdBanner{animation:none !important}}
+.warr{display:inline-block;font-weight:800;line-height:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.chip{cursor:pointer;font-size:13px;padding:5px 12px}
+.chip:hover{filter:brightness(1.12)}
+details.help{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px;font-size:14px}
+details.help>summary{cursor:pointer;color:var(--link);font-size:14px;font-weight:600}
+details.help .hb{margin-top:6px;line-height:1.55;max-width:80ch}
+details.help .hb p{margin:6px 0}
+details.help .hb ul{margin:4px 0;padding-left:20px}
+details.help .hb li{margin:4px 0}
+/* alerts + threshold banner */
+.alert{color:#fff;padding:14px 16px;border-radius:10px;margin-bottom:10px}
+.alert.red{background:var(--red)}.alert.orange{background:var(--orange)}
+.alert .ev{font-size:22px;font-weight:700;margin:0 0 4px}
 .alert summary{cursor:pointer;font-weight:600}
-.alert pre{white-space:pre-wrap;font:inherit;font-size:15px;background:rgba(255,255,255,.14);padding:10px;border-radius:8px;margin:8px 0 0}
-.big{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:10px}
-.big .n{font-size:44px;font-weight:700;line-height:1.05}
-.big .l{color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:.04em}
-.big .d{font-size:15px;margin-top:2px}
+.alert pre{white-space:pre-wrap;font:inherit;font-size:14px;background:rgba(255,255,255,.14);padding:10px;border-radius:8px;margin:8px 0 0}
+#alerts-sec{margin-bottom:12px}
+#thresholdBanner{display:none;color:#fff;background:var(--red);padding:14px 16px;border-radius:10px;margin-bottom:12px;font-size:17px;font-weight:600;animation:tww-pulse 1.6s ease-in-out infinite}
+#thresholdBanner.show{display:block}
+#thresholdBanner .small2{display:block;font-weight:400;font-size:14px;margin-top:4px;opacity:.92}
+@keyframes tww-pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,.55)}50%{box-shadow:0 0 0 10px rgba(185,28,28,0)}}
+.threshold-bar{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:end;margin:6px 0}
+.threshold-bar .field{display:flex;flex-direction:column;gap:3px}
+.threshold-bar label{font-size:13px;color:var(--muted)}
+.threshold-bar input[type=number]{font:inherit;font-size:15px;padding:6px 10px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink);width:90px}
+.threshold-bar .chk{flex-direction:row;align-items:center;gap:7px;font-size:14px}
+#thresholdStatus{font-size:14px;color:var(--muted);margin-top:8px}
+/* tables */
 .table-wrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:15px;background:var(--table)}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
 th{background:var(--th);font-weight:600}
 tr.flag{background:var(--flagbg)}
-.badge{display:inline-block;background:var(--orange);color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;white-space:nowrap;vertical-align:middle}
-.card{border:1px solid var(--line);border-left:6px solid #c2410c;border-radius:10px;padding:16px 18px;background:var(--card)}
-.card ul{padding-left:20px;margin:8px 0}
-.card li{margin:9px 0}
-.small{font-size:14px;color:var(--muted)}
-.links li{margin:6px 0}
-footer{border-top:1px solid var(--line);margin-top:30px;padding-top:14px;font-size:14px;color:var(--muted)}
-a{color:var(--link)}
-.linkrow{font-size:14px;margin:4px 0 2px;line-height:1.9}
-.linkrow a{display:inline-block;margin-right:6px;padding:1px 9px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--link);white-space:nowrap}
-.linkrow a:hover{border-color:var(--link)}
-.picker{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
-.picker button{padding:6px 12px;font-size:14px}
+.badge.inl{background:var(--orange);color:#fff;margin-left:6px;vertical-align:middle}
+/* timeline */
+.tlwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--table)}
+.tl{width:auto;min-width:100%;font-size:14px;background:transparent}
+.tl th,.tl td{padding:6px 7px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line);vertical-align:middle}
+.tl th{position:sticky;left:0;z-index:1;text-align:left;background:var(--th);font-weight:600}
+.tl td.r{background:var(--lvred)}.tl td.o{background:var(--lvorange)}
+.tl td.now{box-shadow:inset 0 3px 0 #f59e0b}
+.tl td.day{border-left:2px solid var(--muted)}
+.tl tr.lv td{font-size:12px;font-weight:700}.tl tr.hr td{font-weight:600}
+.tl .warr{font-size:18px}
+#tlSummary{margin:0 0 8px}
+/* deployment */
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 18px;align-items:end;margin:8px 0 12px}
+.calc label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+.calc input[type=range]{width:100%;accent-color:#c2410c}
+.calc select{width:100%}
+#calcSource{font-size:14px;margin:0 0 6px}
+.out{border:1px solid var(--line);border-left:6px solid #c2410c;border-radius:10px;padding:12px 16px;background:var(--panel2)}
+.out .tier{font-size:19px;font-weight:700;margin-bottom:6px}
+.out ul{padding-left:20px}
+/* map */
 #map{height:520px;border:1px solid var(--line);border-radius:10px;background:#0b1220;z-index:0}
-.maptools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}
-.legend{font-size:14px;color:var(--muted);line-height:1.7}
+.maptools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px}
+.legend{font-size:14px;color:var(--muted);line-height:1.7;margin-top:6px}
 .legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px}
 .leaflet-container{font:inherit;font-size:14px}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--popupbg);color:var(--popupink)}
@@ -762,123 +830,222 @@ a{color:var(--link)}
 .leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
 .leaflet-control-layers,.leaflet-bar a{background:var(--popupbg);color:var(--popupink)}
 .leaflet-bar a{border-bottom-color:var(--line)}
-.leaflet-control-layers-expanded{color:var(--popupink)}
 .leaflet-control-attribution{background:rgba(255,255,255,.85);color:#111;font-size:11px}
-.wind{position:relative;min-height:80px}
+.windpin{display:inline-flex;align-items:center;gap:5px;background:rgba(15,23,42,.9);color:#fff;border:2px solid #fff;border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.55)}
+.windpin.r{border-color:#f87171}.windpin.o{border-color:#fb923c}
+.windpin .warr{font-size:17px}
+.windicon{background:transparent;border:0}
+#tileNote{margin-top:8px}
+/* other cards */
 .wind iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:10px;background:#0b1220}
-.cams{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.cam{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.cams{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.cam{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2)}
 .cam img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#1e293b}
 .cam .cap{padding:8px 10px;font-size:14px}
 .cam .cap a{text-decoration:none}
-.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 18px;align-items:end;margin:8px 0 12px}
-.calc label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
-.calc input[type=range]{width:100%}
-.calc select{width:100%}
-.out{border:1px solid var(--line);border-left:6px solid #c2410c;border-radius:10px;padding:14px 16px;background:var(--card)}
-.out .tier{font-size:20px;font-weight:700;margin-bottom:6px}
+.links li{margin:6px 0}
+.linkrow{font-size:14px;margin:4px 0 2px;line-height:1.9}
+.linkrow a{display:inline-block;margin-right:6px;padding:1px 9px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--link);white-space:nowrap}
+.factlist{padding-left:20px;margin:6px 0}
+.factlist li{margin:9px 0}
+details.ref summary{cursor:pointer;font-weight:600;font-size:16px;padding:6px 0}
 textarea{width:100%;min-height:120px;font:inherit;font-size:15px;padding:10px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink)}
-.sunmoon{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.sunmoon .l{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.04em}
-.sunmoon .n{font-size:22px;font-weight:600}
-details.ref summary{cursor:pointer;font-weight:600;font-size:17px;padding:6px 0}
-details.ref ul{margin:6px 0 10px}
-/* phase 3: data-health strip, as-of stamps, stale guard, tile/Windy fallback notes */
-.health{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:10px;font-size:13px;color:var(--sub)}
-.health span{white-space:nowrap}
-.health .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#64748b;vertical-align:-1px;margin-right:5px}
-.health .dot.on{background:#22c55e}
-.asof{font-size:13px;color:var(--muted);font-weight:400;margin-left:8px}
-h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
-.stale-line{color:#f59e0b}
-#tileNote{margin-top:8px}
-/* threshold alerting */
-.threshold-bar{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:end;margin:10px 0}
-.threshold-bar .field{display:flex;flex-direction:column;gap:3px}
-.threshold-bar label{font-size:13px;color:var(--muted)}
-.threshold-bar input[type=number]{font:inherit;font-size:15px;padding:6px 10px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink);width:90px}
-.threshold-bar .chk{flex-direction:row;align-items:center;gap:7px;font-size:14px;color:var(--noteink)}
-.threshold-bar .chk input{width:auto}
-#thresholdStatus{font-size:14px;color:var(--muted);margin-top:8px}
-#thresholdBanner{display:none;color:#fff;background:var(--red);padding:16px 18px;border-radius:10px;margin-bottom:14px;font-size:17px;font-weight:600;animation:tww-pulse 1.6s ease-in-out infinite}
-#thresholdBanner.show{display:block}
-#thresholdBanner .small2{display:block;font-weight:400;font-size:14px;margin-top:4px;opacity:.92}
-@keyframes tww-pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,.55)}50%{box-shadow:0 0 0 10px rgba(185,28,28,0)}}
-@media (prefers-reduced-motion:reduce){#thresholdBanner{animation:none}}
-/* phase 4: crew view, conditions card, 24-hour timeline, wind arrow */
-body.crew .plan-only{display:none !important}
-.verdict{border-radius:12px;padding:16px 18px 14px;margin-bottom:14px}
-.verdict.red{background:var(--red);color:#fff}
-.verdict.orange{background:var(--orange);color:#fff}
-.verdict.green{background:var(--ok);color:var(--okink);border:1px solid var(--okline)}
-.verdict.warn{border-left:10px solid #dc2626}
-.verdict.wait{background:var(--note);color:var(--noteink)}
-.verdict .lvl{font-size:34px;font-weight:800;line-height:1.1}
-.verdict .why{margin:6px 0 0;padding-left:20px}
-.verdict .why li{margin:3px 0}
-.verdict .ahead{margin-top:10px;padding-top:9px;border-top:1px solid currentColor;font-weight:600;opacity:.95}
-.warr{display:inline-block;font-weight:800;line-height:1}
-.big .n .warr{font-size:34px;margin-right:6px;vertical-align:4px}
-#crewObs{margin:-2px 0 4px}
-#areaSelect{max-width:100%}
-@media (max-width:600px){body.crew .health,body.crew #status{display:none}}
-.tlwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--table)}
-.tl{width:auto;min-width:100%;font-size:14px;background:transparent}
-.tl th,.tl td{padding:6px 7px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line);vertical-align:middle}
-.tl th{position:sticky;left:0;z-index:1;text-align:left;background:var(--th);font-weight:600}
-.tl td.r{background:var(--lvred)}
-.tl td.o{background:var(--lvorange)}
-.tl td.now{box-shadow:inset 0 3px 0 #f59e0b}
-.tl td.day{border-left:2px solid var(--muted)}
-.tl tr.lv td{font-size:12px;font-weight:700}
-.tl tr.hr td{font-weight:600}
-.tl .warr{font-size:18px}
-#tlSummary{margin:0 0 8px}
-.windpin{display:inline-flex;align-items:center;gap:5px;transform:translate(-50%,-50%);background:rgba(15,23,42,.9);color:#fff;border:2px solid #fff;border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.55)}
-.windpin.r{border-color:#f87171}
-.windpin.o{border-color:#fb923c}
-.windpin .warr{font-size:17px}
-.leaflet-div-icon.windicon{background:transparent;border:0}
-@media print{#thresholdBanner{animation:none;border:2px solid #000;background:#fff !important;color:#000}}
-@media (max-width:600px){header h1{font-size:22px}.big .n{font-size:36px}.verdict .lvl{font-size:28px}main{padding:12px 12px 32px}body{font-size:16px}#map{height:480px}.wind iframe{height:360px}header{padding-left:14px;padding-right:14px}}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px}
+/* manual */
+#manual{position:fixed;inset:0;z-index:5000;background:rgba(5,10,16,.92);display:none;overflow:auto;padding:20px 12px;padding-top:calc(20px + env(safe-area-inset-top, 0px))}
+#manual.open{display:block}
+#manual .mdoc{max-width:860px;margin:0 auto;background:#fff;color:#1a1a1a;border-radius:10px;padding:24px 28px;line-height:1.55;font-size:16px}
+#manual .mdoc h1{font-size:24px;margin:0 0 4px}
+#manual .mdoc h2{font-size:19px;margin:22px 0 6px;border-bottom:2px solid #e3e8ef;padding-bottom:4px;color:#0d3b66}
+#manual .mdoc h3{font-size:16px;margin:14px 0 4px;color:#0d3b66}
+#manual .mdoc a{color:#0b5cad}
+#manual .mlead{color:#555;margin:0}
+#manual .mbar{position:sticky;top:0;display:flex;gap:8px;justify-content:flex-end;max-width:860px;margin:0 auto 8px}
+footer{padding:20px 16px 28px;padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.disc{max-width:1200px;margin:0 auto}
+.disc p{margin:0 0 6px;max-width:80ch;line-height:1.5}
+.disc .disc-lead{color:var(--ink);font-size:14px;border-left:3px solid #f2b632;padding-left:10px;margin-bottom:10px}
+#manual .disc{margin-top:28px;padding-top:14px;border-top:1px solid #d5dce5;color:#555;font-size:13px}
+#manual .disc .disc-lead{color:#1a1a1a}
+@media (max-width:600px){.health,#status,#printBriefing,#themeToggle{display:none !important}header .hdr-right button{padding:5px 9px;font-size:13px}.gauge-wrap svg{width:112px;height:112px}.gauge-wrap{gap:8px}header h1{font-size:18px}main{padding:10px 10px 28px}.gauge-status{font-size:19px}#map{height:460px}.wind iframe{height:360px}.card>h2 .src{margin-left:0;text-align:left;width:100%}}
 @media print{
-  :root{--bg:#fff;--panel:#fff;--ink:#000;--muted:#333;--line:#999;--card:#fff;--head:#fff;--headink:#000;--sub:#333;--note:#f3f3f3;--noteink:#222;--ok:#fff;--okink:#000;--okline:#000;--flagbg:#fff;--link:#000;--btn:#fff;--btnink:#000;--btnline:#000;--table:#fff;--th:#eee;--lvred:#ddd;--lvorange:#eee}
+  :root{--bg:#fff;--panel:#fff;--panel2:#fff;--ink:#000;--muted:#333;--line:#999;--head:#fff;--note:#f3f3f3;--noteink:#222;--ok:#fff;--okink:#000;--okline:#000;--flagbg:#fff;--link:#000;--btn:#fff;--btnink:#000;--btnline:#000;--table:#fff;--th:#eee;--title:#000;--lvred:#ddd;--lvorange:#eee}
   @page{margin:12mm}
   html,body{background:#fff;color:#000}
-  .no-print,.print-hide{display:none !important}
-  body.crew .plan-only:not(.print-hide):not(.no-print){display:block !important}
-  header{background:#fff;color:#000;border-bottom:2px solid #000;padding:0 0 8px}
-  .alert,.verdict{border:2px solid #000;color:#000 !important;background:#fff !important}
-  .alert pre{background:#fff;border:1px solid #999}
-  a{color:#000;text-decoration:none}
-  tr.flag{background:#fff}
-  .badge{border:1px solid #000;color:#000;background:#fff}
-  .card{border-left-color:#000;background:#fff}
-  section{margin:14px 0}
-  #notesSec{display:block !important}
-  textarea{border:1px solid #000;min-height:60px}
+  header{position:static}
+  .no-print,.print-hide,details.help,.hdr-right button{display:none !important}
+  .card{break-inside:avoid;border:1px solid #999}
+  .alert,#thresholdBanner{border:2px solid #000;color:#000 !important;background:#fff !important;animation:none}
+  .badge{border:1px solid #000;color:#000 !important;background:#fff !important}
+  body.print-manual>header,body.print-manual>main,body.print-manual>footer{display:none !important}
+  body.print-manual #manual{display:block !important;position:static;background:#fff;padding:0}
+  body.print-manual #manual .mbar{display:none !important}
+  body.print-manual #manual .mdoc{max-width:none;padding:0;font-size:12pt}
+  body:not(.print-manual) #manual{display:none !important}
 }
 </style>
 </head>
-<body class="crew">
+<body>
 <header>
-  <h1>Beverly Hills Wildfire Watch</h1>
-  <div class="sub">Watch point: <strong id="watchLabel">Trousdale Estates</strong> · <span id="watchCoords">34.1060, -118.4050</span> · NWS fire weather zone: <span id="zone">reading…</span></div>
-  <div class="bar">
-    <div class="viewtoggle no-print" role="group" aria-label="Choose a view">
-      <button id="viewCrew" type="button" aria-pressed="true" title="Conditions, timeline, alerts, map, fires — built for a phone in the rig">Crew view</button>
-      <button id="viewPlan" type="button" aria-pressed="false" title="Everything: forecasts, observations, calculator, SOC reference, notes">Planning view</button>
+  <div class="hrow">
+    <h1>Beverly Hills Wildfire Watch<small>Hillside fire weather, alerts, fires and deployment · <span id="watchCoords">34.1060, -118.4050</span> · NWS fire zone <span id="zone">reading…</span></small></h1>
+    <div class="hdr-right">
+      <span id="overall" class="badge b-muted" title="24-hour readiness">LOADING</span>
+      <span class="small" id="updated">—</span>
+      <button id="refresh" type="button" title="Refresh all live data">↻ Refresh</button>
+      <button id="copyBtn" type="button" title="Copy a text briefing to the clipboard">Copy briefing</button>
+      <button id="printBriefing" type="button">Print briefing</button>
+      <button id="themeToggle" type="button" title="Switch between dark and light">Light</button>
+      <button id="manualBtn" type="button" class="primary" title="How to read and use this dashboard">Manual</button>
     </div>
-    <div class="sub">Last updated: <strong id="updated">—</strong></div>
-    <button id="refresh" class="no-print" type="button">Refresh</button>
-    <button id="themeToggle" class="no-print" type="button" title="Switch between dark and light">Light</button>
-    <button id="printBriefing" class="no-print" type="button">Print briefing</button>
-    <div class="sub no-print" id="status"></div>
   </div>
-  <div class="health no-print" id="health" aria-label="Live feed health"></div>
+  <div class="arow no-print">
+    <label class="small" for="areaSelect">Area</label>
+    <select id="areaSelect"></select>
+    <span id="status" class="small"></span>
+  </div>
+  <div class="arow no-print"><div class="health" id="health" aria-label="Live feed health"></div></div>
+</header>
+<main>
+  <div id="overallSimple"></div>
   <div id="thresholdBanner" role="alert"></div>
-  <details class="no-print plan-only" id="alertSettings">
-    <summary style="cursor:pointer;font-weight:600;font-size:15px;padding:4px 0">Alert thresholds<span class="small" id="thresholdSummary"></span></summary>
+  <section id="alerts-sec" aria-live="polite">
+    <div id="alerts" class="note">Checking NWS alerts for this location…</div>
+    <div class="small" id="asof-alerts"></div>
+  </section>
+
+  <section class="card" id="heroCard">
+    <h2 id="h2-hero">Today at a glance — <span id="heroArea" style="text-transform:none;letter-spacing:0">Trousdale Estates</span><span class="asof" id="asof-hero"></span></h2>
+    <div class="gauge-row">
+      <div id="readyGauge"></div>
+      <div id="windGauge"></div>
+      <div id="rhGauge"></div>
+      <div id="dayGauge"></div>
+    </div>
+    <div class="chips" id="heroChips"></div>
+  </section>
+
+  <section class="card" id="deployCard" data-collapse="open">
+    <h2>Deployment — resource calculator <span class="src">Planning model, SOC report Section 5 · local math only</span></h2>
+    <p id="calcSource" class="small">Waiting for the forecast — sliders show defaults.</p>
+    <div class="calc">
+      <div><label for="cWind">Wind speed: <strong id="cWindV">10</strong> mph sustained</label><input id="cWind" type="range" min="0" max="70" value="10"></div>
+      <div><label for="cRh">Humidity: <strong id="cRhV">30</strong>%</label><input id="cRh" type="range" min="1" max="100" value="30"></div>
+      <div><label for="cTime">Time of day</label><select id="cTime"><option value="day">Daytime</option><option value="night">Night</option></select></div>
+      <div><label for="cSide">Ignition side</label><select id="cSide"><option value="north">North — Mulholland side, running into Trousdale</option><option value="city">In-city (for example Hillcrest Rd and Barrie Dr)</option></select></div>
+    </div>
+    <div class="bar no-print" style="margin:0 0 10px"><button id="calcLive" type="button">Use live forecast</button></div>
+    <div id="calcOut" class="out"></div>
+    <p class="small">How it decides: humidity 15% or lower OR sustained wind 25 mph or more = the City's own Red Flag triggers, so the wind-driven model applies. Humidity 20% or lower with wind 15 mph or more = elevated, plan the wind-driven model and pre-position. Otherwise the ordinary-day first alarm applies. Sustained wind above 40 mph or night = do not count aircraft (gap analysis, Part 3).</p>
+  </section>
+
+  <section class="card" id="timelineCard" data-collapse="open">
+    <h2 id="h2-tl">Next 24 hours <span class="asof" id="asof-tl"></span><span class="src">NWS gridpoint forecast for the selected area</span></h2>
+    <div id="tlSummary"></div>
+    <div id="timeline" class="tlwrap"><div class="note">Loading the hour-by-hour forecast…</div></div>
+  </section>
+
+  <section class="card print-hide" id="mapCard" data-collapse="open">
+    <h2 id="h2-map">Map — fire roads, risk areas, evacuation streets <span class="asof" id="asof-tiles"></span><span class="src">Tap anywhere for a spot forecast</span></h2>
+    <div class="maptools no-print">
+      <button id="measureBtn" type="button">Measure</button>
+      <button id="measureClear" type="button">Clear</button>
+      <span id="measureOut" class="small">Press Measure, then tap two points on the map.</span>
+    </div>
+    <div id="map" role="application" aria-label="Map of the Beverly Hills hillside areas"></div>
+    <div id="mapNote" class="note" hidden>Map tiles unavailable right now (no internet?) — the overlays and the fire roads still draw from this file. Reopen or press Refresh.</div>
+    <div id="tileNote" class="note" hidden></div>
+    <div id="fireroadNote" class="small">Fire roads: drawing from this file…</div>
+    <div class="legend">
+      <i style="background:#f97316"></i>Fire roads ·
+      <i style="background:rgba(220,38,38,.35);border:1px solid #dc2626"></i>Trousdale Estates ·
+      <i style="background:rgba(249,115,22,.35);border:1px solid #f97316"></i>Upper Coldwater / Loma Linda ·
+      <i style="background:rgba(34,197,94,.3);border:1px solid #16a34a"></i>Franklin Canyon Park (Initial Action Zone) ·
+      <i style="background:#dc2626"></i>Map 23 evacuation streets ·
+      <i style="background:#facc15;border-radius:50%"></i>SOC ignition points ·
+      <i style="background:#2563eb;border-radius:50%"></i>Fire stations ·
+      <i style="background:#a855f7;border-radius:50%"></i>Cameras ·
+      <i style="background:#ef4444;border-radius:50%"></i>Active fires ·
+      <i style="background:#0f172a;border:2px solid #fff;border-radius:50%"></i>Wind at the watch point
+    </div>
+  </section>
+
+  <section class="card" id="firesCard" data-collapse="closed">
+    <h2 id="h2-fires">Active fires nearby <span class="asof" id="asof-fires"></span><span class="src">NIFC WFIGS · distance from <span id="firesFrom">Trousdale Estates</span></span></h2>
+    <div id="fires" class="note">Loading active fire incidents…</div>
+  </section>
+
+  <section class="card print-hide" id="camsCard" data-collapse="closed">
+    <h2 id="h2-cams">Fire cameras <span class="asof" id="asof-cams"></span><span class="src">ALERTCalifornia / UC San Diego · CC BY-NC-ND 4.0</span></h2>
+    <div id="cams" class="cams"></div>
+    <p class="small"><a href="https://cameras.alertcalifornia.org/" target="_blank" rel="noopener">All ALERTCalifornia cameras</a></p>
+  </section>
+
+  <section class="card" id="stationsCard" data-collapse="closed">
+    <h2>Nearest fire stations <span class="src"><span id="stationsArea">Trousdale Estates</span> · straight-line</span></h2>
+    <div id="stationsOut" class="note">Calculating…</div>
+  </section>
+
+  <section class="card print-hide" id="obsCard" data-collapse="closed">
+    <h2 id="h2-obs">Observed weather <span class="asof" id="asof-obs"></span><span class="src">NWS stations within 15 mi · real readings</span></h2>
+    <div id="obs" class="note">Loading station readings…</div>
+    <p class="small">Mountain stations: <a href="https://raws.dri.edu/cgi-bin/rawMAIN.pl?caCTOP" target="_blank" rel="noopener">Topanga RAWS</a> · <a href="https://mesowest.utah.edu/cgi-bin/droman/meso_base_dyn.cgi?stn=TPGC1" target="_blank" rel="noopener">Topanga on MesoWest</a> · <a href="https://mesowest.utah.edu/cgi-bin/droman/meso_base_dyn.cgi?stn=CEEC1" target="_blank" rel="noopener">Cheeseboro on MesoWest</a>. The SOC says BHFD also watches a Beverly Hills RAWS (printed p. 78 / PDF p. 88); it has no public page.</p>
+  </section>
+
+  <section class="card" id="daysCard" data-collapse="closed">
+    <h2 id="h2-days">Next 7 days <span class="asof" id="asof-days"></span><span class="src">NWS forecast</span></h2>
+    <div id="days" class="note">Loading the 7-day forecast…</div>
+  </section>
+
+  <section class="card print-hide" id="windCard" data-collapse="closed">
+    <h2 id="h2-wind">Wind map <span class="asof" id="asof-windy"></span><span class="src">Windy.com · <a id="windyLink" href="#" target="_blank" rel="noopener">open in a new tab</a></span></h2>
+    <div id="wind" class="wind"><div class="note">The wind map loads while this card is open.</div></div>
+  </section>
+
+  <section class="card print-hide" id="linksLiveCard" data-collapse="closed">
+    <h2>Heat, smoke, evacuation, roads <span class="src">Public maps, zoomed to the selected area</span></h2>
+    <ul class="links" id="liveLinks"></ul>
+    <div class="linkrow" id="areaLinks" data-area="__current__"></div>
+  </section>
+
+  <section class="card print-hide" id="refCard" data-collapse="closed">
+    <h2>Pre-attack reference <span class="src">2026–2030 Standards of Cover</span></h2>
+    <details class="ref">
+      <summary>The fifteen SOC operational areas</summary>
+      <p>The SOC divides the Very High Fire Hazard Severity Zone into fifteen operational areas, each with its own Pre-Attack Plan. The SOC does not list the fifteen areas by name — fifteen areas, see SOC printed p. 78 / PDF p. 88. Each Pre-Attack Plan carries, in the SOC's words: a response guide, potential resource needs, fire behavior predictions, lookout locations, specific hazards, heli-spots, hydrant locations, evacuation areas, engine safety zones, staging areas, public refuge areas, medical plan information, evacuation routes, and specific limitations for each area — plus local resource contacts for firefighting resources, city departments, utility agencies, and public assistance providers.</p>
+      <p class="small">Open question for BHFD (gap analysis, Part 5): which of the fifteen areas cover Trousdale, and the "potential resource needs" listed for each.</p>
+    </details>
+    <details class="ref">
+      <summary>Red Flag posture checklist</summary>
+      <ul class="factlist">
+        <li>City Red Flag triggers: humidity 15% or lower, sustained wind 25 mph or more with gusts to 35, burn index 151 or more (City Red Flag parking page, cited in the gap analysis).</li>
+        <li>One extra 4-person engine staffed to cover north of Sunset as the "first strike" unit (SOC printed p. 78 / PDF p. 88).</li>
+        <li>Parking restricted on the designated narrow streets in the zone — 16 street segments including Carla Ridge, Loma Vista, N. Hillcrest, Doheny, Coldwater, and Benedict Canyon (City Red Flag page, cited in the gap analysis). <a href="https://www.beverlyhills.org/517/Red-Flag-Warning-Parking-Restrictions" target="_blank" rel="noopener">City Red Flag parking page</a></li>
+        <li>Weather watch: the Beverly Hills RAWS plus LA County Fire, LAFD, NWS, and South Zone data (SOC printed p. 78 / PDF p. 88).</li>
+        <li>Juliet's model (SOC report, Section 5): on a forecast Santa Ana event, pre-position 2–3 strike teams in Trousdale and Coldwater, not one engine — because the 2021 assessment puts a Mulholland fire in Trousdale in under 15 minutes.</li>
+        <li>Evacuation: Loma Vista, Hillcrest and Doheny are the ways out; traffic control points at Sunset; Genasys and WEA alerts as drilled (SOC report, Section 5). <a href="https://www.beverlyhills.org/DocumentCenter/View/10357/Wildfire-Evacuation-Route-Map-2026" target="_blank" rel="noopener">City evacuation route map (2026)</a></li>
+        <li>Automatic aid on the first alarm: LAFD BRUSH assignment and LA County Engine 7 (see the Trousdale fixed facts).</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="card" id="factsCard" data-collapse="closed">
+    <h2>Trousdale fixed facts <span class="src">SOC and gap analysis</span></h2>
+    <ul class="factlist">
+      <li><strong>Highest-risk area: Trousdale Estates (Carla Ridge / Loma Vista Dr / N. Hillcrest Rd, up to Mulholland).</strong> Second: upper Coldwater Canyon / Loma Linda corridor. <span class="small">SOC Maps 20–23, printed pp. 47–50 / PDF pp. 57–60.</span><div class="linkrow no-print" data-area="trousdale"></div><div class="linkrow no-print" data-area="coldwater"></div></li>
+      <li><strong>What the SOC says a Very High Risk wildland fire needs on the first alarm:</strong> 27 personnel (1 BC, 5 engines, 1 truck) = BHFD's whole on-duty force, so any serious Trousdale fire is a mutual-aid fire from the first alarm. <span class="small">SOC critical tasking table, printed p. 117 / PDF p. 127; daily staffing printed pp. 70–72 / PDF pp. 80–82.</span></li>
+      <li><strong>Planning model (wind-driven Santa Ana, first burning period):</strong> ~40–50 engines, 2–4 hand crews, 3–4 aircraft, 2–4 water tenders, ~250–320 fire personnel, plus police for evacuation. <strong>This is a TRIAGE AND PATROL force, not a one-engine-per-structure defense force (FIRESCOPE doctrine).</strong> <span class="small">Planning model: the SOC report, Section 5. Label: the gap analysis, Part 3.</span></li>
+      <li><strong>Speed of the fire:</strong> the 2021 Wildfire Assessment modeled a Mulholland ignition reaching Trousdale in under 15 minutes, so pre-positioning, not response, is the only plan that works. <span class="small">Gap analysis finding; Wildfire Assessment Report (Shew / Lopez, 2021).</span><div class="linkrow no-print" data-area="mulholland"></div></li>
+      <li><strong>Mutual and automatic aid lineup:</strong> LAFD BRUSH assignment (6 engines, 1 light force, 2 helicopters, 2 BCs, 1 assistant chief) — SOC printed p. 71 / PDF p. 81. LA County Fire (E7 first alarm; LF8 + BC second alarm) — printed p. 103 / PDF p. 113. Santa Monica Plan (Sept 2024) with LAFD, LA County, MRCA, NPS — Franklin Canyon = Initial Action Zone — printed pp. 36, 72 / PDF pp. 46, 82.<div class="linkrow no-print" data-area="franklin"></div></li>
+      <li><strong>Red Flag day posture:</strong> one extra 4-person engine staffed north of Sunset; parking restricted on designated narrow streets. <span class="small">SOC printed p. 78 / PDF p. 88.</span></li>
+      <li><strong>At stake:</strong> ~1,628 parcels, ~$1.6B assessed value; 2,110 public "trees of concern" north of Sunset. <span class="small">SOC printed pp. 35, 41 / PDF pp. 45, 51; trees printed p. 46 / PDF p. 56.</span></li>
+      <li><strong>The SOC's own admission:</strong> "increased response time to the Trousdale Area" is listed as an area requiring improvement; the fixes it offers are a fourth station, a peak-time move-up unit, a two-person quick-response vehicle, or relocating Station 2. <span class="small">SOC printed p. 158 / PDF p. 168 (gap analysis finding).</span><div class="linkrow no-print" data-area="station2"></div></li>
+    </ul>
+    <p class="small">Page references give both numbers: printed page / PDF page (PDF page = printed page + 10). Sources: "Beverly Hills Wildfire Risk — What the 2026–2030 Standards of Cover Says" (Juliet Rose, Sept 7, 2026) and its "Verification and Gap Analysis" (Sept 7, 2026).</p>
+  </section>
+
+  <section class="card no-print" id="thrCard" data-collapse="closed">
+    <h2>Alert thresholds <span class="src" id="thresholdSummary"></span></h2>
     <div class="threshold-bar">
       <div class="field"><label for="thWind">Alert if wind gust ≥ (mph)</label><input id="thWind" type="number" min="0" max="120" step="1"></div>
       <div class="field"><label for="thRh">Alert if humidity ≤ (%)</label><input id="thRh" type="number" min="0" max="100" step="1"></div>
@@ -887,172 +1054,16 @@ body.crew .plan-only{display:none !important}
       <div class="field"><button id="thTest" type="button">Test alert</button></div>
     </div>
     <div id="thresholdStatus"></div>
-    <p class="small">Checked against the live NWS hourly forecast and the nearest observed station reading for the current watch point, every time this page refreshes (every 15 minutes while open, or press Refresh). Settings are saved on this computer per device, not shared. Defaults match the City's own Red Flag triggers.</p>
-  </details>
-  <div class="picker no-print">
-    <label class="sub" for="areaSelect">Area:</label>
-    <select id="areaSelect" aria-label="Pick an area"></select>
-    <span id="areaButtons" class="plan-only"></span>
-  </div>
-  <div class="linkrow no-print plan-only" id="areaLinks" data-area="__current__"></div>
-</header>
-<main>
-  <section id="crewSec">
-    <h2 id="h2-crew">Conditions at <span id="crewArea">Trousdale Estates</span><span class="asof" id="asof-crew"></span></h2>
-    <div id="verdict" class="verdict wait" aria-live="polite"><div class="lvl">Reading the forecast…</div></div>
-    <div id="crewNow" class="big"></div>
-    <div id="crewObs" class="small"></div>
-    <h3>Next 24 hours</h3>
-    <div id="tlSummary"></div>
-    <div id="timeline" class="tlwrap"><div class="note">Loading the hour-by-hour forecast…</div></div>
-    <p class="small">Shaded hours meet the City's Red Flag triggers (red: humidity 15% or lower, or sustained wind 25 mph or more) or are elevated (orange: humidity 20% or lower with wind 15 mph or more, or gusts 35 mph or more). Arrows point the way the wind is blowing. Source: NWS gridpoint forecast for the watch point. The City's third trigger, burning index 151 or more, is not in this feed.</p>
   </section>
 
-  <section id="alerts-sec" aria-live="polite">
-    <div id="alerts" class="note">Checking NWS alerts for this location…</div>
-    <div class="small" id="asof-alerts"></div>
-  </section>
-
-  <section id="mapSec" class="print-hide">
-    <h2 id="h2-map">Map<span class="asof" id="asof-tiles"></span></h2>
-    <div class="maptools no-print">
-      <button id="measureBtn" type="button">Measure</button>
-      <button id="measureClear" type="button">Clear</button>
-      <span id="measureOut" class="small">Click Measure, then click two points on the map.</span>
-    </div>
-    <div id="map" role="application" aria-label="Map of the Beverly Hills hillside areas"></div>
-    <div id="mapNote" class="note" hidden>Map tiles unavailable right now (no internet?) — the overlays and the fire roads still draw from this file. Reopen or press Refresh.</div>
-    <div id="tileNote" class="note" hidden></div>
-    <div id="fireroadNote" class="small">Fire roads: drawing from this file…</div>
-    <div class="legend">
-      <div>Base maps: satellite with street names (default), USGS topo for slope and drainages, streets for addresses — switch in the layers button, top right.</div>
-      <div><i style="background:#f97316"></i>Fire roads: OpenStreetMap, captured 2026-09-07 (named fire roads, truck trails, fire service roads, unpaved tracks; © OpenStreetMap contributors, ODbL) — baked into this file, refreshed from the live map when it answers ·
-      <i style="background:rgba(220,38,38,.35);border:1px solid #dc2626"></i>Trousdale Estates ·
-      <i style="background:rgba(249,115,22,.35);border:1px solid #f97316"></i>Upper Coldwater / Loma Linda ·
-      <i style="background:rgba(34,197,94,.3);border:1px solid #16a34a"></i>Franklin Canyon Park (Initial Action Zone) ·
-      <i style="background:#dc2626"></i>Map 23 evacuation segments (Carla Ridge, Loma Vista) ·
-      <i style="background:#facc15;border-radius:50%"></i>SOC simulation ignition points ·
-      <i style="background:#2563eb;border-radius:50%"></i>Fire stations ·
-      <i style="background:#a855f7;border-radius:50%"></i>Cameras ·
-      <i style="background:#0f172a;border:2px solid #fff;border-radius:50%"></i>Wind at the watch point (this hour's forecast; the arrow points the way the wind is blowing)</div>
-      <div>Overlays are approximations for orientation, traced from SOC Maps 20–23 and public street geometry (OpenStreetMap). They are not survey data. Click anywhere on the map for a spot forecast.</div>
-    </div>
-  </section>
-
-  <section id="stationsSec">
-    <h2>Nearest fire stations — <span id="stationsArea">Trousdale Estates</span></h2>
-    <div id="stationsOut" class="note">Calculating…</div>
-    <p class="small">Straight-line distance and bearing from the current watch point, sorted closest first, across BHFD and the LAFD/LA County stations nearest the hillside areas. The drive-time column is a rough estimate (straight-line distance ÷ 20 mph, a stand-in for winding canyon roads) — not real routing, and not an official first-due assignment. Confirm actual dispatch/first-due through CAD or your battalion chief.</p>
-  </section>
-
-  <section class="plan-only">
-    <h2 id="h2-now">Right now<span class="asof" id="asof-now"></span></h2>
-    <div id="now" class="note">Loading the latest hourly forecast…</div>
-  </section>
-
-  <section class="plan-only">
-    <h2 id="h2-days">Next 7 days<span class="asof" id="asof-days"></span></h2>
-    <p class="small">A row is flagged <span class="badge">Santa Ana pattern</span> when the wind comes from the north, northeast, or east AND the humidity is 20% or lower, or when the NWS forecast text says "Santa Ana", "offshore", or "red flag".</p>
-    <div id="days" class="note">Loading the 7-day forecast…</div>
-  </section>
-
-  <section id="windSec" class="print-hide plan-only">
-    <h2 id="h2-wind">Live wind window<span class="asof" id="asof-windy"></span></h2>
-    <p class="small">Windy.com wind map centered on the watch point (loads when you scroll here). <a id="windyLink" href="#" target="_blank" rel="noopener">Open Windy in a new tab</a></p>
-    <div id="wind" class="wind"><div class="note">The wind window loads when it scrolls into view.</div></div>
-  </section>
-
-  <section id="obsSec" class="print-hide plan-only">
-    <h2 id="h2-obs">Observed weather — real readings, not forecast<span class="asof" id="asof-obs"></span></h2>
-    <p class="small">Latest readings from NWS-listed stations within 15 miles of the watch point (Santa Monica, Burbank, Van Nuys always included). Mountain RAWS stations relayed through NWS appear here when in range; their own pages are linked below.</p>
-    <div id="obs" class="note">Loading station readings…</div>
-    <p class="small" id="rawsLinks">Nearest mountain RAWS stations: <a href="https://raws.dri.edu/cgi-bin/rawMAIN.pl?caCTOP" target="_blank" rel="noopener">Topanga RAWS (DRI page)</a> · <a href="https://mesowest.utah.edu/cgi-bin/droman/meso_base_dyn.cgi?stn=TPGC1" target="_blank" rel="noopener">Topanga on MesoWest (TPGC1)</a> · <a href="https://mesowest.utah.edu/cgi-bin/droman/meso_base_dyn.cgi?stn=CEEC1" target="_blank" rel="noopener">Cheeseboro on MesoWest (CEEC1)</a>. The SOC says BHFD also watches the Beverly Hills RAWS (printed p. 78 / PDF p. 88); it has no public page we could verify.</p>
-  </section>
-
-  <section id="camSec" class="print-hide">
-    <h2 id="h2-cams">Fire cameras<span class="asof" id="asof-cams"></span></h2>
-    <p class="small">Latest frames from the ALERTCalifornia public cameras nearest the hillside areas. Frames refresh every minute while this section is on screen; click a frame to open the live camera. Credit: ALERTCalifornia / UC San Diego, shown unmodified under CC BY-NC-ND 4.0 (non-commercial).</p>
-    <div id="cams" class="cams"></div>
-    <p class="small"><a href="https://cameras.alertcalifornia.org/" target="_blank" rel="noopener">All ALERTCalifornia cameras</a></p>
-  </section>
-
-  <section>
-    <h2 id="h2-fires">Active fires nearby<span class="asof" id="asof-fires"></span></h2>
-    <p class="small">Source: NIFC WFIGS current incidents inside the Santa Monica Mountains / LA basin box (about -118.75 to -118.10 west to east, 33.90 to 34.35 south to north). Distance is a straight line from the selected watch point, <span id="firesFrom">Trousdale Estates</span>.</p>
-    <div id="fires" class="note">Loading active fire incidents…</div>
-  </section>
-
-  <section id="linksLiveSec" class="print-hide plan-only">
-    <h2>Heat, smoke, evacuation, roads</h2>
-    <ul class="links" id="liveLinks"></ul>
-    <p class="small">These open the public maps in a new tab, centered on the watch point. No key, no account.</p>
-  </section>
-
-  <section id="calcSec" class="print-hide plan-only">
-    <h2>Resource calculator</h2>
-    <p class="small">Local math only — nothing is sent anywhere. The tiers are Juliet's planning model from the SOC report, Section 5 (built on the SOC's own numbers). Move the sliders and pick the conditions.</p>
-    <div class="calc">
-      <div><label for="cWind">Wind speed: <strong id="cWindV">10</strong> mph sustained</label><input id="cWind" type="range" min="0" max="70" value="10"></div>
-      <div><label for="cRh">Humidity: <strong id="cRhV">30</strong>%</label><input id="cRh" type="range" min="1" max="100" value="30"></div>
-      <div><label for="cTime">Time of day</label><select id="cTime"><option value="day">Daytime</option><option value="night">Night</option></select></div>
-      <div><label for="cSide">Ignition side</label><select id="cSide"><option value="north">North — Mulholland side, running into Trousdale</option><option value="city">In-city (for example Hillcrest Rd and Barrie Dr)</option></select></div>
-    </div>
-    <div id="calcOut" class="out"></div>
-    <p class="small">How it decides: humidity 15% or lower OR sustained wind 25 mph or more = the City's own Red Flag triggers (gap analysis, City Red Flag page), so the wind-driven model applies. Humidity 20% or lower with wind 15 mph or more = elevated, plan the wind-driven model and pre-position. Otherwise the ordinary-day first alarm applies. Sustained wind above 40 mph or night = do not count aircraft (gap analysis, Part 3).</p>
-  </section>
-
-  <section id="sunSec" class="plan-only">
-    <h2>Sun and moon</h2>
-    <div class="sunmoon" id="sunmoon"></div>
-    <p class="small">Computed on this computer for the watch point with the standard NOAA solar equations (no network). Santa Ana wind season runs about September through April, strongest in the fall and early winter.</p>
-  </section>
-
-  <section id="refSec" class="print-hide plan-only">
-    <h2>Pre-attack quick reference</h2>
-    <details class="ref">
-      <summary>The fifteen SOC operational areas</summary>
-      <p>The SOC divides the Very High Fire Hazard Severity Zone into fifteen operational areas, each with its own Pre-Attack Plan. The SOC does not list the fifteen areas by name — fifteen areas, see SOC printed p. 78 / PDF p. 88. Each Pre-Attack Plan carries, in the SOC's words: a response guide, potential resource needs, fire behavior predictions, lookout locations, specific hazards, heli-spots, hydrant locations, evacuation areas, engine safety zones, staging areas, public refuge areas, medical plan information, evacuation routes, and specific limitations for each area — plus local resource contacts for firefighting resources, city departments, utility agencies, and public assistance providers.</p>
-      <p class="small">Open question for BHFD (gap analysis, Part 5): which of the fifteen areas cover Trousdale, and the "potential resource needs" listed for each.</p>
-    </details>
-    <details class="ref">
-      <summary>Red Flag posture checklist</summary>
-      <ul>
-        <li>City Red Flag triggers: humidity 15% or lower, sustained wind 25 mph or more with gusts to 35, burn index 151 or more (City Red Flag parking page, cited in the gap analysis).</li>
-        <li>One extra 4-person engine staffed to cover north of Sunset as the "first strike" unit (SOC printed p. 78 / PDF p. 88).</li>
-        <li>Parking restricted on the designated narrow streets in the zone — 16 street segments including Carla Ridge, Loma Vista, N. Hillcrest, Doheny, Coldwater, and Benedict Canyon (City Red Flag page, cited in the gap analysis). <a href="https://www.beverlyhills.org/517/Red-Flag-Warning-Parking-Restrictions" target="_blank" rel="noopener">City Red Flag parking page</a></li>
-        <li>Weather watch: the Beverly Hills RAWS plus LA County Fire, LAFD, NWS, and South Zone data (SOC printed p. 78 / PDF p. 88). Check the observed readings and the alert banner on this page.</li>
-        <li>Juliet's model (SOC report, Section 5): on a forecast Santa Ana event, pre-position 2–3 strike teams in Trousdale and Coldwater, not one engine — because the 2021 assessment puts a Mulholland fire in Trousdale in under 15 minutes.</li>
-        <li>Evacuation: Loma Vista, Hillcrest and Doheny are the ways out; traffic control points at Sunset; Genasys and WEA alerts as drilled (SOC report, Section 5). <a href="https://www.beverlyhills.org/DocumentCenter/View/10357/Wildfire-Evacuation-Route-Map-2026" target="_blank" rel="noopener">City evacuation route map (2026)</a></li>
-        <li>Automatic aid on the first alarm: LAFD BRUSH assignment and LA County Engine 7 (see the Trousdale card).</li>
-      </ul>
-    </details>
-  </section>
-
-  <section class="plan-only">
-    <h2>The Trousdale card — fixed facts from our reports</h2>
-    <div class="card">
-      <ul>
-        <li><strong>Highest-risk area: Trousdale Estates (Carla Ridge / Loma Vista Dr / N. Hillcrest Rd, up to Mulholland).</strong> Second: upper Coldwater Canyon / Loma Linda corridor. <span class="small">SOC Maps 20–23, printed pp. 47–50 / PDF pp. 57–60.</span><div class="linkrow no-print" data-area="trousdale"></div><div class="linkrow no-print" data-area="coldwater"></div></li>
-        <li><strong>What the SOC says a Very High Risk wildland fire needs on the first alarm:</strong> 27 personnel (1 BC, 5 engines, 1 truck) = BHFD's whole on-duty force, so any serious Trousdale fire is a mutual-aid fire from the first alarm. <span class="small">SOC critical tasking table, printed p. 117 / PDF p. 127; daily staffing printed pp. 70–72 / PDF pp. 80–82.</span></li>
-        <li><strong>Planning model (wind-driven Santa Ana, first burning period):</strong> ~40–50 engines, 2–4 hand crews, 3–4 aircraft, 2–4 water tenders, ~250–320 fire personnel, plus police for evacuation. <strong>This is a TRIAGE AND PATROL force, not a one-engine-per-structure defense force (FIRESCOPE doctrine).</strong> <span class="small">Planning model: the SOC report, Section 5. Label: the gap analysis, Part 3.</span></li>
-        <li><strong>Speed of the fire:</strong> the 2021 Wildfire Assessment modeled a Mulholland ignition reaching Trousdale in under 15 minutes, so pre-positioning, not response, is the only plan that works. <span class="small">Gap analysis finding; Wildfire Assessment Report (Shew / Lopez, 2021).</span><div class="linkrow no-print" data-area="mulholland"></div></li>
-        <li><strong>Mutual and automatic aid lineup:</strong> LAFD BRUSH assignment (6 engines, 1 light force, 2 helicopters, 2 BCs, 1 assistant chief) — SOC printed p. 71 / PDF p. 81. LA County Fire (E7 first alarm; LF8 + BC second alarm) — printed p. 103 / PDF p. 113. Santa Monica Plan (Sept 2024) with LAFD, LA County, MRCA, NPS — Franklin Canyon = Initial Action Zone — printed pp. 36, 72 / PDF pp. 46, 82.<div class="linkrow no-print" data-area="franklin"></div></li>
-        <li><strong>Red Flag day posture:</strong> one extra 4-person engine staffed north of Sunset; parking restricted on designated narrow streets. <span class="small">SOC printed p. 78 / PDF p. 88.</span></li>
-        <li><strong>At stake:</strong> ~1,628 parcels, ~$1.6B assessed value; 2,110 public "trees of concern" north of Sunset. <span class="small">SOC printed pp. 35, 41 / PDF pp. 45, 51; trees printed p. 46 / PDF p. 56.</span></li>
-        <li><strong>The SOC's own admission:</strong> "increased response time to the Trousdale Area" is listed as an area requiring improvement; the fixes it offers are a fourth station, a peak-time move-up unit, a two-person quick-response vehicle, or relocating Station 2. <span class="small">SOC printed p. 158 / PDF p. 168 (gap analysis finding).</span><div class="linkrow no-print" data-area="station2"></div></li>
-      </ul>
-      <p class="small">Page references give both numbers: printed page / PDF page (PDF page = printed page + 10). Sources: "Beverly Hills Wildfire Risk — What the 2026–2030 Standards of Cover Says" (Juliet Rose, Sept 7, 2026) and its "Verification and Gap Analysis" (Sept 7, 2026).</p>
-    </div>
-  </section>
-
-  <section id="notesSec" class="plan-only">
-    <h2>Notes — <span id="notesArea">Trousdale Estates</span></h2>
+  <section class="card" id="notesCard" data-collapse="closed">
+    <h2>Notes — <span id="notesArea" style="text-transform:none;letter-spacing:0">Trousdale Estates</span> <span class="src">saved on this device</span></h2>
     <p class="small" id="notesHint">Notes stay on this computer. Each area has its own note.</p>
-    <textarea id="notes" placeholder="Type notes for this area — staging spots, contacts, what you saw on the ground…"></textarea>
+    <textarea id="notes" placeholder="Staging spots, contacts, what you saw on the ground…"></textarea>
     <div class="bar no-print"><button id="notesDownload" type="button">Download my notes</button><span class="small" id="notesStatus"></span></div>
   </section>
 
-  <section id="linksSec" class="print-hide plan-only">
+  <section class="card print-hide" id="linksCard" data-collapse="closed">
     <h2>Links</h2>
     <ul class="links">
       <li><a href="https://www.beverlyhills.org/DocumentCenter/View/16064/2026-2030-CRASOC" target="_blank" rel="noopener">BHFD 2026–2030 Community Risk Assessment / Standards of Cover (PDF, City of Beverly Hills)</a></li>
@@ -1066,11 +1077,15 @@ body.crew .plan-only{display:none !important}
       <li><a href="https://firemap.sdsc.edu/" target="_blank" rel="noopener">WIFIRE Firemap (UC San Diego / San Diego Supercomputer Center) — live fire perimeters, wind, fuel conditions</a></li>
     </ul>
   </section>
-
-  <footer> Developer Patrick Butler Wildfire Watch. For situational awareness only. Data may not be accurate or delayed : NOAA/NWS and NIFC WFIGS. Fixed facts: BHFD 2026–2030 Standards of Cover.
-    <div class="small" style="margin-top:8px">Sources: OpenStreetMap / Overpass fire roads, Esri World Imagery and reference labels, USGS The National Map, OpenStreetMap tiles, Windy.com, ALERTCalifornia cameras.</div>
-  </footer>
 </main>
+<footer>
+  <div class="disc">
+    <p class="disc-lead"><b>For situational awareness only.</b> This dashboard does not issue warnings, orders or assignments. Official watches and warnings come from the National Weather Service; deployment, evacuation and dispatch decisions come from BHFD, the City of Beverly Hills and dispatch. Confirm before acting. In an emergency, call 911.</p>
+    <p>Readings come from public sources and can be delayed, missing or wrong. The dials, the 24-hour readiness level and the deployment tiers are planning rules of thumb built on the City's Red Flag triggers and the SOC planning model, not official forecasts. Provided as is, without warranty of any kind.</p>
+    <p class="small">Data: NOAA/NWS, NIFC WFIGS, ALERTCalifornia, OpenStreetMap / Overpass, Esri, USGS, Windy. Fixed facts: BHFD 2026–2030 Standards of Cover.</p>
+    <p class="small">Beverly Hills Wildfire Watch. Developed by Patrick Butler, &copy; 2026.</p>
+  </div>
+</footer>
 
 <script id="leaflet-js">/* leaflet-js-start */
 /* @preserve
@@ -1490,8 +1505,8 @@ body.crew .plan-only{display:none !important}
     });
     h.innerHTML = html;
   }
-  var STAMP_IDS = { forecast: ['asof-crew', 'asof-now', 'asof-days'], alerts: ['asof-alerts'], obs: ['asof-obs'], fires: ['asof-fires'], tiles: ['asof-tiles'], windy: ['asof-windy'], cams: ['asof-cams'] };
-  var STALE_H2 = { forecast: ['h2-crew', 'h2-now', 'h2-days'], obs: ['h2-obs'], fires: ['h2-fires'], tiles: ['h2-map'], windy: ['h2-wind'], cams: ['h2-cams'] };
+  var STAMP_IDS = { forecast: ['asof-hero', 'asof-tl', 'asof-days'], alerts: ['asof-alerts'], obs: ['asof-obs'], fires: ['asof-fires'], tiles: ['asof-tiles'], windy: ['asof-windy'], cams: ['asof-cams'] };
+  var STALE_H2 = { forecast: ['h2-hero', 'h2-tl', 'h2-days'], obs: ['h2-obs'], fires: ['h2-fires'], tiles: ['h2-map'], windy: ['h2-wind'], cams: ['h2-cams'] };
   function stampAsOf(key) {
     (STAMP_IDS[key] || []).forEach(function (id) { var e = el(id); if (e) e.textContent = 'as of ' + fmtAt(lastOK[key]); });
     checkStale();
@@ -1558,19 +1573,6 @@ body.crew .plan-only{display:none !important}
   }
   el('themeToggle').addEventListener('click', function () { applyTheme(state.theme === 'dark' ? 'light' : 'dark'); });
   el('printBriefing').addEventListener('click', function () { try { window.print(); } catch (e) {} });
-
-  // ---------- Crew view / Planning view ----------
-  function applyView(v) {
-    state.view = v === 'plan' ? 'plan' : 'crew';
-    var crew = state.view === 'crew';
-    if (crew) document.body.classList.add('crew'); else document.body.classList.remove('crew');
-    el('viewCrew').className = crew ? 'on' : ''; el('viewCrew').setAttribute('aria-pressed', crew ? 'true' : 'false');
-    el('viewPlan').className = crew ? '' : 'on'; el('viewPlan').setAttribute('aria-pressed', crew ? 'false' : 'true');
-    storeSet('tww.view', state.view);
-    if (map) setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60);
-  }
-  el('viewCrew').addEventListener('click', function () { applyView('crew'); });
-  el('viewPlan').addEventListener('click', function () { applyView('plan'); });
 
   // ---------- conditions: hour-by-hour data ----------
   // NWS gridpoint data gives every element (wind, gust, direction, humidity, temperature) as time series with ISO 8601
@@ -1702,93 +1704,346 @@ body.crew .plan-only{display:none !important}
     return 'No Red Flag-level or elevated hours forecast in the next 24 hours.' + esc(tail);
   }
 
-  function renderCrewNow() {
-    var h = state.hours && state.hours[0];
-    var s = sunTimes(new Date(), state.watch[0], state.watch[1]);
-    if (!h) { el('crewNow').innerHTML = ''; return; }
-    var comp = degToCompass(h.dir);
-    var html =
-      '<div><div class="l">Wind</div><div class="n">' + arrowHTML(h.dir) + (h.wind == null ? '—' : esc(h.wind)) + '<span style="font-size:20px"> mph</span></div><div class="d">' + (comp ? esc(windWords(comp)) : 'direction not given') + '</div></div>' +
-      '<div><div class="l">Gusts</div><div class="n">' + (h.gust == null ? '—' : esc(h.gust) + '<span style="font-size:20px"> mph</span>') + '</div><div class="d">' + (h.gust == null ? 'not in the forecast' : 'forecast peak this hour') + '</div></div>' +
-      '<div><div class="l">Humidity</div><div class="n">' + (h.rh == null ? '—' : esc(h.rh) + '%') + '</div><div class="d">' + (h.rh == null ? 'not given' : h.rh <= RF_RH ? 'at or below the 15% trigger' : h.rh <= EL_RH ? 'very dry (20% or lower)' : h.rh <= 35 ? 'dry' : 'not critically dry') + '</div></div>' +
-      '<div><div class="l">Temperature</div><div class="n">' + (h.temp == null ? '—' : esc(h.temp) + '°') + '</div><div class="d">forecast this hour</div></div>' +
-      '<div><div class="l">Sunset</div><div class="n" style="font-size:30px">' + esc(s.sunset ? fmtClock(s.sunset) : '—') + '</div><div class="d">civil dusk ' + esc(s.dusk ? fmtClock(s.dusk) : '—') + '</div></div>';
-    el('crewNow').innerHTML = html;
+  // ---------- Today at a glance: gauges (drawing adapted from Redondo Beach Storm Track) ----------
+  var GC = { ok: '#3fbf7f', warn: '#f2b632', bad: '#ef5350', gray: '#5b6b80' };
+  function gaugeArc(cx, cy, r, a1, a2) {
+    var rad = function (a) { return a * Math.PI / 180; };
+    var x1 = cx + r * Math.cos(rad(a1)), y1 = cy + r * Math.sin(rad(a1)), x2 = cx + r * Math.cos(rad(a2)), y2 = cy + r * Math.sin(rad(a2));
+    return 'M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + (Math.abs(a2 - a1) > 180 ? 1 : 0) + ' 1 ' + x2 + ' ' + y2;
   }
-  function renderCrewObs() {
-    var o = state.obsNearest;
-    if (!o) { el('crewObs').textContent = ''; return; }
-    el('crewObs').innerHTML = 'Nearest observed reading: <strong>' + esc(o.name || o.id) + '</strong>' + (o.dist != null ? ', ' + esc(o.dist.toFixed(1)) + ' mi away' : '') + ' — ' +
-      (o.temp == null ? '' : esc(o.temp) + '°F, ') + 'humidity ' + (o.rh == null ? '—' : esc(o.rh) + '%') + ', wind ' + (o.wind == null ? '—' : esc(o.wind) + ' mph' + (o.dir != null ? ' from the ' + esc(degToCompass(o.dir)) : '')) + ', gusts ' + (o.gust == null ? '—' : esc(o.gust) + ' mph') + (o.when ? ', at ' + esc(fmtTime(o.when)) : '') + '.';
+  /* o: value, min, max, bands [[from,to,color]], ticks [{v,label}], gust (second tick on the dial), peak (triangle = worst ahead),
+        title, word, cls (ok|warn|bad), valueText, lines [html], sub, noData */
+  function gaugeHTML(o) {
+    var cx = 66, cy = 72, r = 46, start = -210, end = 30;
+    var pct = function (v) { return Math.min(1, Math.max(0, (v - o.min) / (o.max - o.min))); };
+    var ang = function (v) { return start + pct(v) * (end - start); };
+    var pt = function (v, rr) { var a = ang(v) * Math.PI / 180; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)]; };
+    var arcs = (o.bands || []).map(function (b) { return '<path d="' + gaugeArc(cx, cy, r, ang(b[0]), ang(b[1])) + '" fill="none" stroke="' + b[2] + '" stroke-width="9"/>'; }).join('');
+    var ticks = (o.ticks || []).map(function (t) { var p = pt(t.v, r + 15); return '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9.5" fill="var(--muted)">' + esc(t.label) + '</text>'; }).join('');
+    var marks = '';
+    if (o.value != null && o.gust != null) { var g1 = pt(o.gust, r - 6), g2 = pt(o.gust, r + 6); marks += '<line x1="' + g1[0] + '" y1="' + g1[1] + '" x2="' + g2[0] + '" y2="' + g2[1] + '" stroke="var(--ink)" stroke-width="3"><title>gust</title></line>'; }
+    if (o.value != null && o.peak != null) {
+      var a = ang(o.peak) * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux, b = pt(o.peak, r + 7), tip = pt(o.peak, r - 1);
+      marks += '<polygon points="' + tip[0] + ',' + tip[1] + ' ' + (b[0] + nx * 5) + ',' + (b[1] + ny * 5) + ' ' + (b[0] - nx * 5) + ',' + (b[1] - ny * 5) + '" fill="var(--ink)"><title>worst in the next 24 hours</title></polygon>';
+    }
+    var nv = o.value == null ? o.min : Math.min(o.max, Math.max(o.min, o.value));
+    var svg = '<svg width="140" height="140" viewBox="0 0 150 150" aria-hidden="true">' + arcs + ticks + marks + (o.value == null ? '</svg>' :
+      '<g class="gauge-needle" style="transform-origin:' + cx + 'px ' + cy + 'px;transform:rotate(' + (start + 90) + 'deg)" data-final="' + (ang(nv) + 90) + '">' +
+      '<line x1="' + cx + '" y1="' + (cy + 9) + '" x2="' + cx + '" y2="' + (cy - r + 12) + '" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="var(--ink)"/></g></svg>');
+    var body = o.value == null
+      ? '<div class="gauge-status">NO DATA</div><div class="gauge-sub">' + esc(o.noData || 'No data right now') + '</div>'
+      : '<div class="gauge-status' + (o.cls ? ' g-' + o.cls : '') + '">' + esc(o.word || '') + '</div>' + (o.valueText ? '<div class="gauge-val">' + o.valueText + '</div>' : '') +
+        (o.lines || []).map(function (l) { return '<div class="gauge-when">' + l + '</div>'; }).join('') + '<div class="gauge-sub">' + o.sub + '</div>';
+    return '<div class="gauge-wrap">' + svg + '<div class="gauge-txt"><div class="gauge-title">' + esc(o.title) + '</div>' + body + '</div></div>';
+  }
+  function paintGauge(id, o) {
+    var e = el(id); if (!e) return;
+    e.innerHTML = gaugeHTML(o);
+    var nd = e.querySelector('.gauge-needle');
+    if (nd) requestAnimationFrame(function () { requestAnimationFrame(function () { nd.style.transform = 'rotate(' + nd.getAttribute('data-final') + 'deg)'; }); });
+  }
+  function relIn(t, now) {
+    var m = Math.round((t - now) / 60000);
+    if (m <= 0) return 'now';
+    var h = Math.floor(m / 60), r = m % 60;
+    return 'in ' + (h ? h + ' h ' : '') + r + ' m';
   }
 
-  // the verdict: worst of this hour's forecast, the nearest observed reading, and any active NWS fire-weather alert
-  function renderVerdict() {
-    var box = el('verdict'); if (!box) return;
-    var hrs = state.hours, h0 = hrs && hrs[0], o = state.obsNearest, alerts = state.alertEvents || [];
-    if (!h0 && !o && !alerts.length) {
-      box.className = 'verdict wait';
-      box.innerHTML = '<div class="lvl">' + (state.hoursFailed ? 'Forecast unavailable' : 'Reading the forecast…') + '</div>' + (state.hoursFailed ? '<div>' + esc(offline() ? NO_NET : WEATHER_DOWN) + '</div>' : '');
-      return;
+  // ---------- 24-hour readiness ----------
+  // Same idea as Redondo's 72-Hour Readiness: every driver is scored 0-100 on one scale (0-33 Routine, 33-66 Prepare, 66-100 Act now)
+  // and the needle follows the WORST driver, never an average. The weather part is built so its zones match the City's Red Flag
+  // triggers exactly: humidity 15% or lower, or sustained wind 25 mph or more = Act now; humidity 20% or lower with wind 15 mph or
+  // more, or gusts 35 mph or more = Prepare. Gusts alone and dry air alone (16-20%) can never reach Act now.
+  var RDY = { prepare: 33, act: 66,
+    alerts: { 'red flag warning': 85, 'extreme fire': 85, 'fire weather watch': 50, 'high wind warning': 55, 'high wind watch': 45, 'wind advisory': 40 },
+    fires: [[3, 70], [10, 45], [25, 20]],          // nearest active wildfire within N miles -> score (rule of thumb)
+    actions: {
+      routine: 'Tier 1 — ordinary-day first alarm: 27 BHFD (1 BC, 5 engines, 1 truck) plus the LAFD BRUSH assignment.',
+      prepare: 'Plan the wind-driven Tier 2 model and pre-position. Red Flag posture: extra 4-person engine north of Sunset.',
+      act: 'Tier 2 — pre-position 2–3 strike teams in Trousdale and Coldwater, not one engine. Parking restrictions, evacuation routes ready.'
+    } };
+  function band(v, lo, p, a) {   // piecewise 0 -> 33 -> 66 -> 100
+    if (v == null || isNaN(v)) return null;
+    if (v <= lo) return 0;
+    if (v < p) return RDY.prepare * (v - lo) / (p - lo);
+    if (v < a) return RDY.prepare + (RDY.act - RDY.prepare) * (v - p) / (a - p);
+    return Math.min(100, RDY.act + (100 - RDY.act) * (v - a) / (a - p));
+  }
+  function hourScore(h) {
+    if (!h) return null;
+    var dry = h.rh != null && h.rh <= EL_RH;
+    var w = band(h.wind, 5, EL_WIND, RF_WIND), r = h.rh == null ? null : band(-h.rh, -35, -EL_RH, -RF_RH), g = band(h.gust, 20, EL_GUST, 55);
+    if (w != null && h.wind < RF_WIND && !dry) w = Math.min(w, RDY.prepare - 1);   // breezy but humid: not elevated
+    if (r != null && h.rh > RF_RH) r = Math.min(r, RDY.prepare - 1);               // dry but calm: not elevated on its own
+    if (g != null) g = Math.min(g, RDY.act - 1);                                       // gusts alone top out at Prepare
+    var s = [w, r, g].filter(function (x) { return x != null; });
+    return s.length ? Math.max.apply(null, s) : null;
+  }
+  function computeReadiness() {
+    var now = Date.now(), D = [], missing = [];
+    var hrs = state.hours;
+    if (hrs && hrs.length) {
+      var worst = null;
+      hrs.forEach(function (h) { var s = hourScore(h); if (s != null && (!worst || s > worst.s)) worst = { s: s, h: h }; });
+      var first = null;
+      hrs.forEach(function (h) { if (first == null && hourScore(h) >= RDY.prepare) first = h.t; });
+      if (worst) D.push({ key: 'weather', label: 'Fire weather', score: worst.s, t: first,
+        detail: (worst.h.rh != null ? 'humidity ' + worst.h.rh + '%' : '') + (worst.h.wind != null ? ', wind ' + worst.h.wind + ' mph' : '') + (worst.h.gust != null ? ', gusts ' + worst.h.gust : '') + (worst.h.t > now + 1800000 ? ' ' + fmtDayHour(worst.h.t) : ' now') });
+    } else missing.push('forecast');
+    var o = state.obsNearest;
+    if (o) {
+      var os = hourScore({ wind: o.wind, gust: o.gust, rh: o.rh });
+      if (os != null) D.push({ key: 'observed', label: 'Observed', score: os, t: os >= RDY.prepare ? now : null, detail: (o.name || o.id) + ': humidity ' + (o.rh == null ? '—' : o.rh + '%') + ', wind ' + (o.wind == null ? '—' : o.wind + ' mph') + (o.gust != null ? ', gusts ' + o.gust : '') });
     }
-    var lv = '', why = [];
-    function bump(l) { if (LEVEL_RANK[l] > LEVEL_RANK[lv]) lv = l; }
-    alerts.forEach(function (a) {
-      if (/red flag warning/i.test(a.event)) { bump('r'); why.push('NWS ' + a.event + ' in effect' + (a.ends ? ' until ' + fmtTime(a.ends) : '') + '.'); }
-      else if (/fire weather watch|high wind|wind advisory|extreme fire/i.test(a.event)) { bump('o'); why.push('NWS ' + a.event + ' in effect' + (a.ends ? ' until ' + fmtTime(a.ends) : '') + '.'); }
+    if (state.alertEvents) {
+      var best = null;
+      state.alertEvents.forEach(function (a) {
+        var k = Object.keys(RDY.alerts).filter(function (x) { return a.event.toLowerCase().indexOf(x) >= 0; })[0];
+        if (k && (!best || RDY.alerts[k] > best.s)) best = { s: RDY.alerts[k], ev: a.event, ends: a.ends };
+      });
+      D.push({ key: 'alerts', label: 'NWS alerts', score: best ? best.s : 0, t: best ? now : null, detail: best ? best.ev + (best.ends ? ' until ' + fmtTime(best.ends) : '') : 'no fire-weather alerts' });
+    } else missing.push('NWS alerts');
+    if (state.fireItems) {
+      var near = state.fireItems.filter(function (it) { return it.dist != null && (it.a.IncidentTypeCategory || 'WF') !== 'RX'; })[0];
+      var fs = 0;
+      if (near) RDY.fires.forEach(function (f) { if (near.dist <= f[0]) fs = Math.max(fs, f[1]); });
+      D.push({ key: 'fires', label: 'Active fires', score: fs, t: fs >= RDY.prepare ? now : null, detail: near ? (near.a.IncidentName || 'Incident') + ' ' + near.dist.toFixed(1) + ' mi ' + near.dir : 'none in the box' });
+    } else missing.push('fire feed');
+    var top = D.slice().sort(function (a, b) { return b.score - a.score; });
+    var score = top.length ? Math.min(100, top[0].score) : null;
+    var level = score == null ? null : score >= RDY.act ? 2 : score >= RDY.prepare ? 1 : 0;
+    var ts = D.filter(function (d) { return d.score >= RDY.prepare && d.t != null; }).map(function (d) { return d.t; });
+    return { score: score, level: level, top: top, firstT: ts.length ? Math.min.apply(null, ts) : null, missing: missing, now: now };
+  }
+  var LEVEL_WORDS = ['ROUTINE', 'PREPARE', 'ACT NOW'], LEVEL_CLS = ['ok', 'warn', 'bad'];
+  function readyBands() { return [[0, RDY.prepare, GC.ok], [RDY.prepare, RDY.act, GC.warn], [RDY.act, 100, GC.bad]]; }
+  function paintReadiness() {
+    var R = computeReadiness(), lines = [];
+    state.readiness = R;
+    if (R.score != null) {
+      var d0 = R.top[0], d1 = R.top[1];
+      lines.push((d0.score >= RDY.prepare ? 'Driven by' : 'Closest to a trigger') + ': <b>' + esc(d0.label) + '</b> — ' + esc(d0.detail));
+      if (d1 && d1.score >= RDY.prepare) lines.push('Also: <b>' + esc(d1.label) + '</b> — ' + esc(d1.detail));
+      lines.push('<b>Deployment:</b> ' + esc([RDY.actions.routine, RDY.actions.prepare, RDY.actions.act][R.level]));
+    }
+    if (R.missing.length) lines.push('<span class="muted">Not counted (no data): ' + esc(R.missing.join(', ')) + '</span>');
+    paintGauge('readyGauge', { title: '24-hour readiness', value: R.score, min: 0, max: 100, bands: readyBands(), ticks: [], peak: null,
+      word: R.level == null ? '' : LEVEL_WORDS[R.level], cls: R.level == null ? '' : LEVEL_CLS[R.level],
+      valueText: R.score == null ? '' : (R.level === 0 ? 'No triggers in the next 24 h' : 'First trigger ' + relIn(R.firstT || R.now, R.now)),
+      lines: lines, sub: 'Worst of fire weather, nearest station, NWS alerts and nearby fires', noData: 'Waiting for the forecast' });
+    var ov = el('overall');
+    if (ov) {
+      ov.className = 'badge ' + (R.level == null ? 'b-muted' : ['b-ok', 'b-warn', 'b-bad'][R.level]);
+      ov.textContent = R.level == null ? 'LOADING' : LEVEL_WORDS[R.level];
+      el('overallSimple').textContent = R.level == null ? '' : ['Routine day. Ordinary-day first alarm.', 'Conditions are building. Plan to pre-position.', 'Red Flag-level conditions. Pre-position now.'][R.level];
+    }
+  }
+  function peakAhead(key, hi) {
+    var best = null;
+    (state.hours || []).forEach(function (h) { if (h[key] == null) return; if (!best || (hi ? h[key] > best[key] : h[key] < best[key])) best = h; });
+    return best;
+  }
+  function paintWind() {
+    var h = state.hours && state.hours[0], o = state.obsNearest;
+    if (!h || h.wind == null) { paintGauge('windGauge', { title: 'Wind', value: null, min: 0, max: 50, noData: state.hoursFailed ? 'Forecast unavailable' : 'Waiting for the forecast' }); return; }
+    var pk = peakAhead('wind', true), pg = peakAhead('gust', true), comp = degToCompass(h.dir);
+    var lv = h.wind >= RF_WIND ? 2 : h.wind >= EL_WIND ? 1 : 0;
+    var offshore = h.dir != null && (h.dir >= 337.5 || h.dir <= 112.5);
+    var lines = [arrowHTML(h.dir) + ' ' + (comp ? 'From the ' + esc(comp) + ' (' + h.dir + '°)' + (offshore ? ' — <b>offshore</b>' : '') : 'direction not given')];
+    lines.push('Gusts ' + (h.gust == null ? '—' : h.gust + ' mph') + (pg ? ' · peak ' + pg.gust + ' mph ' + esc(fmtDayHour(pg.t)) : ''));
+    if (o && (o.wind != null || o.gust != null)) lines.push('<span class="muted">Station check:</span> ' + esc(o.name || o.id) + ' ' + (o.wind == null ? '—' : o.wind + ' mph') + (o.gust != null ? ', gust ' + o.gust : '') + (o.dist != null ? ' <span class="muted">(' + o.dist.toFixed(0) + ' mi)</span>' : ''));
+    paintGauge('windGauge', { title: 'Wind', value: h.wind, min: 0, max: 50, gust: h.gust, peak: pk ? pk.wind : null,
+      bands: [[0, EL_WIND, GC.ok], [EL_WIND, RF_WIND, GC.warn], [RF_WIND, 50, GC.bad]],
+      ticks: [{ v: 0, label: '0' }, { v: EL_WIND, label: '15' }, { v: RF_WIND, label: '25' }, { v: 50, label: '50' }],
+      word: ['NORMAL', 'ELEVATED', 'RED FLAG'][lv], cls: LEVEL_CLS[lv], valueText: h.wind + ' mph sustained', lines: lines,
+      sub: 'Forecast for ' + esc(shortName(state.area)) + ', this hour. Tick = gust, triangle = strongest in 24 h.' });
+  }
+  function paintHumidity() {
+    var h = state.hours && state.hours[0], o = state.obsNearest;
+    if (!h || h.rh == null) { paintGauge('rhGauge', { title: 'Humidity', value: null, min: 0, max: 60, noData: state.hoursFailed ? 'Forecast unavailable' : 'Waiting for the forecast' }); return; }
+    var lo = peakAhead('rh', false), hiT = peakAhead('temp', true);
+    var lv = h.rh <= RF_RH ? 2 : h.rh <= EL_RH ? 1 : 0;
+    var lines = [];
+    if (lo) lines.push('Lowest ' + lo.rh + '% ' + esc(fmtDayHour(lo.t)));
+    lines.push('Temperature ' + (h.temp == null ? '—' : h.temp + '°F') + (hiT ? ' · high ' + hiT.temp + '° ' + esc(fmtHour(hiT.t)) : ''));
+    if (o && o.rh != null) lines.push('<span class="muted">Station check:</span> ' + esc(o.name || o.id) + ' ' + o.rh + '%');
+    paintGauge('rhGauge', { title: 'Humidity', value: h.rh, min: 0, max: 60, peak: lo ? lo.rh : null,
+      bands: [[0, RF_RH, GC.bad], [RF_RH, EL_RH, GC.warn], [EL_RH, 60, GC.ok]],
+      ticks: [{ v: 0, label: '0' }, { v: RF_RH, label: '15' }, { v: EL_RH, label: '20' }, { v: 60, label: '60' }],
+      word: ['NORMAL', 'DRY', 'RED FLAG'][lv], cls: LEVEL_CLS[lv], valueText: h.rh + '%', lines: lines,
+      sub: 'Low is the danger. Triangle = driest hour in 24 h.' });
+  }
+  function paintDaylight() {
+    var now = new Date(), s = sunTimes(now, state.watch[0], state.watch[1]), m = moonPhase(now);
+    if (!s.sunrise || !s.sunset) { paintGauge('dayGauge', { title: 'Daylight', value: null, min: 0, max: 1, noData: 'Sun times unavailable' }); return; }
+    var rise = s.sunrise.getTime(), set = s.sunset.getTime(), t = now.getTime(), hr = 3600000;
+    var dark = t < rise || t > set, last = !dark && set - t <= hr;
+    var lines = [dark ? (t > set ? 'Sunset was ' + esc(fmtClock(s.sunset)) : 'Sunrise ' + esc(fmtClock(s.sunrise))) : 'Sunset <b>' + esc(fmtClock(s.sunset)) + '</b> · ' + relIn(set, t),
+      'Civil dusk ' + esc(s.dusk ? fmtClock(s.dusk) : '—') + ' · sunrise ' + esc(fmtClock(s.sunrise)),
+      'Moon: ' + esc(m.name.toLowerCase()) + ', ' + m.illum + '% lit'];
+    paintGauge('dayGauge', { title: 'Daylight', value: Math.min(set, Math.max(rise, t)), min: rise, max: set,
+      bands: [[rise, set - hr, GC.ok], [set - hr, set, GC.warn]],
+      ticks: [{ v: rise, label: fmtHour(rise).replace(' AM', 'a').replace(' PM', 'p') }, { v: set, label: fmtHour(set).replace(' AM', 'a').replace(' PM', 'p') }],
+      word: dark ? 'DARK' : last ? 'LAST HOUR' : 'DAYLIGHT', cls: dark ? 'bad' : last ? 'warn' : 'ok', lines: lines,
+      sub: 'Night: night-capable aircraft are limited; do not make the plan depend on them.' });
+  }
+  function chip(cls, label, card) { return '<button type="button" class="badge chip ' + cls + '" data-card="' + card + '">' + esc(label) + '</button>'; }
+  function renderChips() {
+    var out = [], al = state.alertEvents;
+    var has = function (re) { return (al || []).filter(function (a) { return re.test(a.event); })[0]; };
+    if (!al) out.push(chip('b-muted', 'NWS alerts · loading', 'alerts-sec'));
+    else {
+      out.push(has(/red flag warning/i) ? chip('b-bad', 'Red Flag Warning · in effect', 'alerts-sec') : chip('b-ok', 'Red Flag Warning · none', 'alerts-sec'));
+      out.push(has(/fire weather watch/i) ? chip('b-warn', 'Fire Weather Watch · in effect', 'alerts-sec') : chip('b-ok', 'Fire Weather Watch · none', 'alerts-sec'));
+      var wind = has(/high wind|wind advisory/i);
+      if (wind) out.push(chip('b-warn', wind.event, 'alerts-sec'));
+    }
+    var fi = state.fireItems;
+    if (!fi) out.push(chip('b-muted', 'Active fires · loading', 'firesCard'));
+    else {
+      var n25 = fi.filter(function (it) { return it.dist != null && it.dist <= 25 && (it.a.IncidentTypeCategory || 'WF') !== 'RX'; });
+      out.push(n25.length ? chip(n25[0].dist <= 10 ? 'b-bad' : 'b-warn', 'Active fires · ' + n25.length + ' within 25 mi, nearest ' + n25[0].dist.toFixed(0) + ' mi', 'firesCard') : chip('b-ok', 'Active fires · none within 25 mi', 'firesCard'));
+    }
+    var mo = new Date().getMonth();
+    out.push(chip('b-info', 'Santa Ana season · ' + ((mo >= 8 || mo <= 3) ? 'in season (Sep–Apr)' : 'off season'), 'refCard'));
+    el('heroChips').innerHTML = out.join('');
+  }
+  function paintHero() {
+    paintReadiness(); paintWind(); paintHumidity(); paintDaylight(); renderChips();
+    el('heroArea').textContent = state.area.name;
+    syncCalcFromLive(false);
+  }
+
+  // ---------- collapsible cards (same behavior as Redondo: remembered per device) ----------
+  var cardHooks = {};
+  function setCollapsed(card, closed, remember) {
+    if (!card) return;
+    if (closed) card.classList.add('collapsed'); else card.classList.remove('collapsed');
+    var h = card.querySelector(':scope > h2'); if (h) h.setAttribute('aria-expanded', closed ? 'false' : 'true');
+    if (remember) storeSet('tww.col.' + card.id, closed ? '1' : '0');
+    if (cardHooks[card.id]) { try { cardHooks[card.id](!closed); } catch (e) { quiet(e); } }
+  }
+  function autoOpen(id, open) {   // opens a card when it has something urgent, but never fights a manual choice
+    var c = el(id); if (!c || storeGet('tww.col.' + id) != null) return;
+    setCollapsed(c, !open, false);
+  }
+  function initCollapsibles() {
+    var cards = document.querySelectorAll('.card[data-collapse]');
+    for (var i = 0; i < cards.length; i++) (function (card) {
+      var h = card.querySelector(':scope > h2'), body = document.createElement('div');
+      body.className = 'cbody';
+      while (h.nextSibling) body.appendChild(h.nextSibling);
+      card.appendChild(body);
+      h.setAttribute('role', 'button'); h.setAttribute('tabindex', '0'); h.title = 'Open or close';
+      var toggle = function (e) { if (e.target.closest && e.target.closest('a')) return; setCollapsed(card, !card.classList.contains('collapsed'), true); };
+      h.addEventListener('click', toggle);
+      h.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e); } });
+      var saved = storeGet('tww.col.' + card.id);
+      setCollapsed(card, saved == null ? card.getAttribute('data-collapse') === 'closed' : saved === '1', false);
+    })(cards[i]);
+  }
+  document.addEventListener('click', function (e) {
+    var c = e.target.closest && e.target.closest('.chip[data-card]'); if (!c) return;
+    var card = el(c.getAttribute('data-card')); if (!card) return;
+    if (card.classList.contains('card')) setCollapsed(card, false, false);
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // ---------- How to read this + Owner's Manual ----------
+  var HELP = {
+    heroCard: { t: 'Today at a glance', h:
+      '<p>Four dials for the selected area. Each reads green, yellow or red against the City\'s own Red Flag triggers: <b>humidity 15% or lower, or sustained wind 25 mph or more</b>. The yellow band is "elevated": humidity 20% or lower with wind 15 mph or more, or gusts 35 mph or more.</p><ul>' +
+      '<li><b>24-hour readiness</b> is one needle for "how close are we to needing to act." It scores the hour-by-hour fire weather for the next 24 hours, the nearest station\'s actual reading, NWS alerts and nearby active fires on one scale and follows the <b>worst</b> one, never an average. <b>Routine</b>, <b>Prepare</b>, <b>Act now</b>. The lines under it say what is driving it, when the first trigger hits, and the matching deployment from the planning model.</li>' +
+      '<li>Gusts alone, or dry air with little wind, top out at Prepare. A Red Flag Warning puts the needle in Act now. A wildfire within about 3 miles reads Act now, within 10 miles Prepare. Prescribed burns are not counted. These fire distances are rules of thumb.</li>' +
+      '<li><b>Wind</b> and <b>Humidity</b> are the forecast for this area for the current hour, not a measurement. The small <b>tick</b> on the wind dial is the gust. The <b>triangle</b> on each dial is the worst value coming in the next 24 hours, so a needle in green with the triangle in red means tonight is the problem. The <b>Station check</b> line is a real reading from the nearest weather station, which may be several miles away and lower down.</li>' +
+      '<li><b>Daylight</b> runs from sunrise to sunset. The last hour turns yellow. After dark, do not count on aircraft.</li>' +
+      '<li><b>Chips</b> under the dials are quick all-clears. Tap one to jump to the details.</li>' +
+      '<li>The City\'s third trigger, a burning index of 151 or more, is not in any free live feed, so it is not on this page.</li></ul>' },
+    deployCard: { t: 'Deployment — resource calculator', h:
+      '<p>The sliders pick the planning tier from the SOC report, Section 5. On open, and whenever the page refreshes, they are set from the <b>worst forecast hour in the next 24 hours</b> for the selected area, so the answer is what to plan for, not just what it is right now. Move a slider to try other conditions; press <b>Use live forecast</b> to go back.</p><ul>' +
+      '<li><b>Tier 1</b>: the ordinary-day first alarm, about 75 people with LAFD auto-aid.</li><li><b>Tier 2</b>: the wind-driven Santa Ana model, about 40–50 engines and 250–320 fire personnel. It is a triage and patrol force, not one engine per house.</li>' +
+      '<li>Time of day is set to night when the worst hour falls after sunset. Ignition side stays where you put it.</li><li>Nothing is sent anywhere; this is local math.</li></ul>' },
+    timelineCard: { t: 'Next 24 hours', h:
+      '<p>Hour by hour for the selected area: wind direction, wind, gusts, humidity and temperature, from the National Weather Service forecast grid. <b>Red</b> columns meet the City\'s Red Flag triggers; <b>orange</b> columns are elevated. The top line tells you when the bad window starts and ends. On a phone, swipe sideways. Arrows point the way the wind is blowing; the letters say where it comes from.</p>' },
+    mapCard: { t: 'Map', h:
+      '<ul><li><b>Layers</b> (top right): satellite with street names, USGS topo for slope and drainages, or streets. Overlays switch on and off there too.</li>' +
+      '<li><b>Orange lines</b> are fire roads and unpaved tracks from OpenStreetMap, built into the page so they draw with no signal. Tap one for its name.</li>' +
+      '<li><b>Shaded areas</b> are the SOC high-risk areas, traced for orientation, not survey lines. <b>Red lines</b> are the Map 23 evacuation streets. <b>Yellow dots</b> are the SOC simulation ignition points.</li>' +
+      '<li>The <b>wind label</b> above the pin is this hour\'s forecast. <b>Tap anywhere</b> for a spot forecast and the closest station. <b>Measure</b> gives a straight-line distance with rough travel times.</li></ul>' },
+    firesCard: { t: 'Active fires nearby', h:
+      '<p>Current incidents from the national fire database (NIFC) in a box over the Santa Monica Mountains and LA basin, sorted by straight-line distance from the selected area. Blank acres or containment means the agency hasn\'t reported it yet. Small or brand-new fires may not appear for a while; dispatch and the cameras are faster. The card opens by itself when a wildfire is within 25 miles.</p>' },
+    camsCard: { t: 'Fire cameras', h:
+      '<p>Latest frames from ALERTCalifornia mountaintop cameras, nearest first. Frames refresh every minute while this card is open and stop when it is closed. Tap a frame for the live camera with pan and history. Use them to confirm a smoke report.</p>' },
+    stationsCard: { t: 'Nearest fire stations', h:
+      '<p>Straight-line distance and direction from the selected area to BHFD and nearby LAFD stations. The drive time is distance ÷ 20 mph, a rough stand-in for canyon roads, not real routing and not a first-due assignment. Confirm dispatch through CAD.</p>' },
+    obsCard: { t: 'Observed weather', h:
+      '<p>Real measurements, not forecasts, from weather stations within 15 miles plus Santa Monica, Burbank and Van Nuys airports. There is no public station in Beverly Hills, so these are nearby readings at different elevations. Ridges above Trousdale can be windier on a Santa Ana day.</p>' },
+    daysCard: { t: 'Next 7 days', h:
+      '<p>The NWS 7-day forecast. A row is flagged <b>Santa Ana pattern</b> when the wind comes from the north, northeast or east with humidity 20% or lower, or when the forecast text says Santa Ana, offshore or red flag.</p>' },
+    windCard: { t: 'Wind map', h: '<p>An animated wind map from Windy.com, centered on the selected area. Use its timeline to see how the wind changes over the next days. It loads only while this card is open.</p>' },
+    linksLiveCard: { t: 'Heat, smoke, evacuation, roads', h: '<p>Public maps that open in a new tab, zoomed to the selected area: satellite heat detections (NASA FIRMS), smoke and air quality (AirNow), evacuation zones (Genasys Protect) and road closures (Caltrans).</p>' },
+    refCard: { t: 'Pre-attack reference', h: '<p>Fixed reference from the SOC: the fifteen operational areas and what each Pre-Attack Plan holds, and the Red Flag posture checklist. Santa Ana season runs about September through April, strongest in fall and early winter.</p>' },
+    factsCard: { t: 'Trousdale fixed facts', h: '<p>Facts from the 2026–2030 Standards of Cover and the gap analysis, with page numbers (printed page / PDF page). These do not change with the weather.</p>' },
+    thrCard: { t: 'Alert thresholds', h: '<p>The pulsing red banner at the top fires when the forecast or nearest observed gust or humidity crosses these numbers, or a new NWS fire-weather warning appears. Defaults match the City\'s Red Flag triggers. Settings are saved on this device only.</p>' },
+    notesCard: { t: 'Notes', h: '<p>A notepad per area for staging spots, contacts and what you saw on the ground. Saved on this device only. Use <b>Download my notes</b> to keep a copy.</p>' },
+    linksCard: { t: 'Links', h: '<p>Official sources: the SOC, the City\'s hazard and evacuation maps, NWS Los Angeles fire weather, and WIFIRE.</p>' }
+  };
+  function addHelp() {
+    Object.keys(HELP).forEach(function (id) {
+      var card = el(id); if (!card) return;
+      var tgt = card.querySelector(':scope > .cbody') || card;
+      var d = document.createElement('details'); d.className = 'help';
+      d.innerHTML = '<summary>ⓘ How to read this</summary><div class="hb">' + HELP[id].h + '</div>';
+      tgt.appendChild(d);
     });
-    var srcF = 'forecast', srcO = o ? 'observed at ' + (o.name || o.id) : '';
-    function worst(key, hi) {
-      var f = h0 ? h0[key] : null, b = o ? o[key] : null;
-      if (f == null && b == null) return null;
-      if (f == null) return { v: b, src: srcO };
-      if (b == null) return { v: f, src: srcF };
-      return (hi ? b > f : b < f) ? { v: b, src: srcO } : { v: f, src: srcF };
-    }
-    var rh = worst('rh', false), wind = worst('wind', true), gust = worst('gust', true);
-    if (rh && rh.v <= RF_RH) { bump('r'); why.push('Humidity ' + rh.v + '% (' + rh.src + ') — at or below the City\'s 15% trigger.'); }
-    if (wind && wind.v >= RF_WIND) { bump('r'); why.push('Sustained wind ' + wind.v + ' mph (' + wind.src + ') — at or above the City\'s 25 mph trigger.'); }
-    if (lv !== 'r') {
-      if (rh && wind && rh.v <= EL_RH && wind.v >= EL_WIND) { bump('o'); why.push('Humidity ' + rh.v + '% with wind ' + wind.v + ' mph — dry and windy, below the Red Flag triggers.'); }
-      if (gust && gust.v >= EL_GUST) { bump('o'); why.push('Gusts ' + gust.v + ' mph (' + gust.src + ') — at the 35 mph gust figure in the City\'s trigger.'); }
-    }
-    if (!why.length) why.push('Humidity ' + (rh ? rh.v + '%' : '—') + ', wind ' + (wind ? wind.v + ' mph' : '—') + (gust ? ', gusts ' + gust.v + ' mph' : '') + ' — below the City\'s Red Flag triggers.');
-    var ahead = '';
-    if (hrs && hrs.length > 1) {
-      var curRank = LEVEL_RANK[lv], i, firstWorse = -1, firstRed = -1;
-      for (i = 1; i < hrs.length; i++) {
-        var lr = LEVEL_RANK[levelOf(hrs[i])];
-        if (firstWorse < 0 && lr > curRank) firstWorse = i;
-        if (firstRed < 0 && lr === 2 && curRank < 2) firstRed = i;
-      }
-      if (firstWorse > 0) {
-        var rest = hrs.slice(firstWorse);
-        var pg = peakOf(rest, 'gust', function (a, b) { return a > b; }), pr = peakOf(rest, 'rh', function (a, b) { return a < b; });
-        var steps = [];
-        if (firstRed > firstWorse) steps.push('Elevated from ' + fmtDayHour(hrs[firstWorse].t));
-        if (firstRed > 0) steps.push('Red Flag-level from ' + fmtDayHour(hrs[firstRed].t));
-        else steps.push('Elevated from ' + fmtDayHour(hrs[firstWorse].t));
-        ahead = 'Ahead: ' + steps.join(', ') + (pg ? '; gusts to ' + pg.gust + ' mph' : '') + (pr ? ', humidity down to ' + pr.rh + '%' : '') + '.';
-      } else if (curRank > 0) {
-        var clearFrom = -1;
-        for (i = hrs.length - 1; i >= 1; i--) { if (levelOf(hrs[i]) !== '') break; clearFrom = i; }
-        ahead = clearFrom > 0 ? 'Ahead: the forecast drops below the triggers around ' + fmtDayHour(hrs[clearFrom].t) + '.' : 'Ahead: no easing forecast in the next 24 hours.';
-        if (alerts.length && clearFrom > 0) ahead += ' Any NWS warning stays in force until it expires.';
-      } else {
-        ahead = 'Ahead: no Red Flag-level or elevated hours forecast in the next 24 hours.';
-      }
-    }
-    var title = lv === 'r' ? 'Red Flag conditions' : lv === 'o' ? 'Elevated' : 'Normal';
-    box.className = 'verdict ' + (lv === 'r' ? 'red' : lv === 'o' ? 'orange' : 'green') + (/Red Flag-level from/.test(ahead) ? ' warn' : '');
-    box.innerHTML = '<div class="lvl">' + esc(title) + '</div><ul class="why">' + why.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' + (ahead ? '<div class="ahead">' + esc(ahead) + '</div>' : '');
-    updateWindPin();
   }
-  function crewFail() {
-    state.hoursFailed = true;
-    setNote('timeline', offline() ? NO_NET : WEATHER_DOWN);
-    el('tlSummary').textContent = '';
-    renderVerdict();
+  function buildManual() {
+    var sec = Object.keys(HELP).map(function (k) { return '<h3>' + esc(HELP[k].t) + '</h3>' + HELP[k].h; }).join('');
+    var m = document.createElement('div'); m.id = 'manual'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-label', "Owner's manual");
+    m.innerHTML = '<div class="mbar"><button type="button" id="mPrint" class="primary">Print / save as PDF</button><button type="button" id="mClose">Close ✕</button></div><div class="mdoc">' +
+      '<h1>Beverly Hills Wildfire Watch: Owner\'s Manual</h1><p class="mlead">How to read and use the dashboard. Written for crews and officers.</p>' +
+      '<h2>1. What this is (and isn\'t)</h2><p>One web page that pulls live public fire-weather, alert, fire and camera data for the Beverly Hills hillside areas onto one screen, with the SOC\'s fixed facts and planning model. It refreshes itself every 15 minutes (button: <b>Refresh</b>).</p><p><b>It is for situational awareness only.</b> Official warnings come from the National Weather Service; orders and assignments come from BHFD and dispatch.</p>' +
+      '<h2>2. The top bar</h2><ul><li><b>Status badge:</b> the 24-hour readiness level, <b>ROUTINE</b>, <b>PREPARE</b> or <b>ACT NOW</b>.</li><li><b>Area:</b> picks the watch point. Every forecast, distance and dial follows it.</li><li><b>Copy briefing</b> copies a plain-text summary to paste into a text or email. <b>Print briefing</b> prints the page with every card open.</li><li>The colored dots show whether each live feed answered and when.</li></ul>' +
+      '<h2>3. Colors</h2><p><b>Green</b> normal, <b>yellow</b> elevated or prepare, <b>red</b> Red Flag or act now. Section titles with a ▾ arrow open and close; the page remembers your choice on this device. Every section has an <b>ⓘ How to read this</b> drop-down with the same text as below.</p>' +
+      '<h2>4. Red Flag day checklist</h2><ul><li>Check the readiness dial and the 24-hour timeline for when the bad window starts.</li><li>Set the Deployment card from the live forecast and brief the tier.</li><li>Red Flag posture: extra 4-person engine north of Sunset; parking restrictions on the designated narrow streets.</li><li>Open the cameras and the active fires card; keep the map on satellite with street names.</li><li>Use Copy briefing for situation updates.</li></ul>' +
+      '<h2>5. Section by section</h2>' + sec +
+      '<h2>6. Troubleshooting</h2><ul><li><b>Page looks old:</b> the browser is showing a saved copy. Press Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).</li><li><b>A section says unavailable:</b> that source is down for now; the rest still works. Press Refresh in a few minutes.</li><li><b>Notes and thresholds</b> are saved per device and do not sync.</li></ul></div>';
+    document.body.appendChild(m);
+    var fd = document.querySelector('footer .disc'); if (fd) m.querySelector('.mdoc').appendChild(fd.cloneNode(true));
+    el('manualBtn').addEventListener('click', function () { m.classList.add('open'); m.scrollTop = 0; el('mClose').focus(); });
+    el('mClose').addEventListener('click', function () { m.classList.remove('open'); });
+    m.addEventListener('click', function (e) { if (e.target === m) m.classList.remove('open'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') m.classList.remove('open'); });
+    el('mPrint').addEventListener('click', function () { document.body.classList.add('print-manual'); window.print(); setTimeout(function () { document.body.classList.remove('print-manual'); }, 500); });
   }
+
+  // ---------- copy briefing ----------
+  function briefingText() {
+    var L = [], R = state.readiness || computeReadiness(), h = state.hours && state.hours[0], o = state.obsNearest;
+    L.push('BEVERLY HILLS WILDFIRE WATCH — ' + nowStamp());
+    L.push('Area: ' + state.area.name);
+    L.push('Readiness (24 h): ' + (R.level == null ? 'no data' : LEVEL_WORDS[R.level]) + (R.top[0] ? ' — ' + R.top[0].label + ': ' + R.top[0].detail : ''));
+    if (R.level != null) L.push('Deployment: ' + [RDY.actions.routine, RDY.actions.prepare, RDY.actions.act][R.level]);
+    L.push('NWS alerts: ' + ((state.alertEvents || []).length ? state.alertEvents.map(function (a) { return a.event + (a.ends ? ' until ' + fmtTime(a.ends) : ''); }).join('; ') : 'none'));
+    if (h) L.push('Forecast now: wind ' + (degToCompass(h.dir) || '') + ' ' + h.wind + ' mph, gusts ' + (h.gust == null ? '—' : h.gust) + ', humidity ' + (h.rh == null ? '—' : h.rh + '%') + ', ' + (h.temp == null ? '' : h.temp + '°F'));
+    var pg = peakAhead('gust', true), lr = peakAhead('rh', false);
+    if (pg || lr) L.push('Next 24 h: ' + (pg ? 'peak gust ' + pg.gust + ' mph ' + fmtDayHour(pg.t) : '') + (pg && lr ? '; ' : '') + (lr ? 'lowest humidity ' + lr.rh + '% ' + fmtDayHour(lr.t) : ''));
+    if (state.hours) L.push('Window: ' + el('tlSummary').textContent);
+    if (o) L.push('Observed (' + (o.name || o.id) + '): humidity ' + (o.rh == null ? '—' : o.rh + '%') + ', wind ' + (o.wind == null ? '—' : o.wind + ' mph') + (o.gust != null ? ' gust ' + o.gust : ''));
+    var fi = (state.fireItems || []).filter(function (it) { return it.dist != null; });
+    L.push('Active fires: ' + (fi.length ? fi.slice(0, 3).map(function (it) { return (it.a.IncidentName || 'Incident') + ' ' + it.dist.toFixed(1) + ' mi ' + it.dir; }).join('; ') : 'none in the box'));
+    var s = sunTimes(new Date(), state.watch[0], state.watch[1]);
+    if (s.sunset) L.push('Sunset ' + fmtClock(s.sunset) + ', civil dusk ' + (s.dusk ? fmtClock(s.dusk) : '—'));
+    var note = (storeGet('tww.notes.' + state.area.key) || '').trim(); if (note) L.push('Notes: ' + note);
+    L.push('For situational awareness only. Confirm with NWS and dispatch.');
+    return L.join('\n');
+  }
+  el('copyBtn').addEventListener('click', function () {
+    var t = briefingText(), b = el('copyBtn');
+    var done = function () { b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = 'Copy briefing'; }, 2000); };
+    try { navigator.clipboard.writeText(t).then(done, function () { window.prompt('Copy the briefing:', t); }); } catch (e) { window.prompt('Copy the briefing:', t); }
+  });
 
   // ---------- section renderers (phase 1, now per watch point) ----------
   function renderAlerts(j) {
@@ -1797,7 +2052,7 @@ body.crew .plan-only{display:none !important}
     lastNewAlertNames = noteNewAlerts(feats);
     if (lastNewAlertNames.length) checkThresholds();
     state.alertEvents = feats.map(function (f) { var p = (f && f.properties) || {}; return { event: String(p.event || ''), ends: p.ends || p.expires || null }; });
-    renderVerdict();
+    paintHero();
     if (!feats.length) { setNote('alerts', NO_ALERTS, 'ok'); return; }
     var html = '';
     feats.forEach(function (f) {
@@ -1888,9 +2143,10 @@ body.crew .plan-only{display:none !important}
     if (!j || j.error) throw new Error((j && j.error && j.error.message) || 'fire feed returned an error');
     var feats = j.features || [];
     if (!again) { feedOK('fires'); state.lastFires = j; }
+    state.fireItems = [];
     var from = state.watch, fromName = shortName(state.area);
     el('firesFrom').textContent = fromName;
-    if (!feats.length) { setNote('fires', NO_FIRES, 'ok'); try { drawFireMarkers([]); } catch (e) { quiet(e); } return; }
+    if (!feats.length) { setNote('fires', NO_FIRES, 'ok'); try { drawFireMarkers([]); } catch (e) { quiet(e); } paintHero(); return; }
     var typeName = { WF: 'Wildfire', RX: 'Prescribed burn', CX: 'Complex' };
     var items = [];
     var latest = 0;
@@ -1920,6 +2176,9 @@ body.crew .plan-only{display:none !important}
     var stamp = latest ? '<div class="small">Feed last changed ' + esc(fmtTime(latest)) + ' &middot; ' + items.length + ' incident' + (items.length === 1 ? '' : 's') + ' in the box. Blank acres or containment means the agency has not reported it yet.</div>' : '';
     setHTML('fires', '<div class="table-wrap"><table><thead><tr><th>Incident</th><th>County</th><th>Acres</th><th>Contained</th><th>Discovered</th><th>Distance from ' + esc(fromName) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + stamp, '');
     try { drawFireMarkers(items); } catch (e) { quiet(e); }
+    state.fireItems = items;
+    autoOpen('firesCard', items.some(function (it) { return it.dist != null && it.dist <= 25 && (it.a.IncidentTypeCategory || 'WF') !== 'RX'; }));
+    paintHero();
   }
 
   // ---------- observed weather ----------
@@ -1974,7 +2233,7 @@ body.crew .plan-only{display:none !important}
         var oGust = kmhToMph(ov('windGust'));
         state.obsNearest = { id: nearest.s.id, name: nearest.s.name, dist: nearest.s.dist, rh: oRh, gust: oGust, wind: kmhToMph(ov('windSpeed')), dir: ov('windDirection'), temp: cToF(ov('temperature')), when: op.timestamp };
         recordObsCond(oRh, oGust, op.timestamp);
-        renderCrewObs(); renderVerdict();
+        paintHero();
       }
       setHTML('obs', '<div class="table-wrap"><table><thead><tr><th>Station</th><th>Temp</th><th>Humidity</th><th>Wind</th><th>Gust</th><th>Observed</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="small">Sorted by distance from ' + esc(state.area.name) + '. A blank cell means that station did not report that value.</div>', '');
     }).catch(function (e) { quiet(e); feedFail('obs'); setNote('obs', offline() ? NO_NET : OBS_DOWN); });
@@ -2004,18 +2263,6 @@ body.crew .plan-only{display:none !important}
     var imgs = document.querySelectorAll('img[data-cam]');
     for (var i = 0; i < imgs.length; i++) imgs[i].src = NONET ? 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' : camFrameUrl(imgs[i].getAttribute('data-cam'));
   }
-  function watchCameras() {
-    var sec = el('camSec');
-    if (!('IntersectionObserver' in window)) { refreshCameras(); return; }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (en.isIntersecting) { refreshCameras(); if (!state.camTimer) state.camTimer = setInterval(refreshCameras, 60000); }
-        else if (state.camTimer) { clearInterval(state.camTimer); state.camTimer = null; }
-      });
-    }, { rootMargin: '200px' });
-    io.observe(sec);
-  }
-
   // ---------- Windy wind window ----------
   function windyEmbedUrl(p) {
     var lat = p[0].toFixed(3), lon = p[1].toFixed(3);
@@ -2050,15 +2297,6 @@ body.crew .plan-only{display:none !important}
       box.appendChild(note);
     });
   }
-  function watchWindy() {
-    var sec = el('windSec');
-    if (!('IntersectionObserver' in window)) { loadWindy(); return; }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting && !state.windyArmed) { state.windyArmed = true; loadWindy(); } });
-    }, { rootMargin: '200px' });
-    io.observe(sec);
-  }
-
   // ---------- map ----------
   var map = null, baseLayers = {}, overlayGroups = {}, measureLayer = null, watchMarker = null, windPin = null;
   var tileStats = { loaded: 0, errors: 0 };
@@ -2338,20 +2576,6 @@ body.crew .plan-only{display:none !important}
     var name = frac < 0.03 || frac > 0.97 ? 'New moon' : frac < 0.22 ? 'Waxing crescent' : frac < 0.28 ? 'First quarter' : frac < 0.47 ? 'Waxing gibbous' : frac < 0.53 ? 'Full moon' : frac < 0.72 ? 'Waning gibbous' : frac < 0.78 ? 'Last quarter' : 'Waning crescent';
     return { age: age, illum: illum, name: name };
   }
-  function renderSunMoon() {
-    var now = new Date();
-    var s = sunTimes(now, state.watch[0], state.watch[1]);
-    var m = moonPhase(now);
-    function t(d) { return d ? fmtClock(d) : '—'; }
-    el('sunmoon').innerHTML =
-      '<div><div class="l">Civil dawn</div><div class="n">' + esc(t(s.dawn)) + '</div></div>' +
-      '<div><div class="l">Sunrise</div><div class="n">' + esc(t(s.sunrise)) + '</div></div>' +
-      '<div><div class="l">Sunset</div><div class="n">' + esc(t(s.sunset)) + '</div></div>' +
-      '<div><div class="l">Civil dusk</div><div class="n">' + esc(t(s.dusk)) + '</div></div>' +
-      '<div><div class="l">Moon</div><div class="n">' + esc(m.name) + '</div><div class="small">' + esc(m.illum) + '% lit, day ' + esc(m.age.toFixed(1)) + ' of the cycle</div></div>' +
-      '<div class="small" style="grid-column:1/-1">Today, Pacific time, for ' + esc(state.area.name) + ' (' + esc(pt4(state.watch)) + ').</div>';
-  }
-
   // ---------- resource calculator (tiers verbatim from the SOC report, Section 5) ----------
   var TIER1 = {
     name: 'Tier 1 — initial attack, ordinary day (the SOC\'s own answer)',
@@ -2415,17 +2639,33 @@ body.crew .plan-only{display:none !important}
     } catch (e) { quiet(e); el('notesStatus').textContent = 'Download blocked here — select the text and copy it instead.'; }
   });
 
+  // ---------- deployment calculator follows the live forecast until you move a slider ----------
+  state.calcManual = false;
+  function syncCalcFromLive(force) {
+    if (force) state.calcManual = false;
+    if (state.calcManual) return;
+    var hrs = state.hours, worst = null;
+    (hrs || []).forEach(function (h) { var s = hourScore(h); if (s != null && (!worst || s > worst.s)) worst = { s: s, h: h }; });
+    if (!worst) { el('calcSource').textContent = 'Waiting for the forecast — sliders show defaults.'; return; }
+    var h = worst.h;
+    if (h.wind != null) el('cWind').value = Math.max(0, Math.min(70, h.wind));
+    if (h.rh != null) el('cRh').value = Math.max(1, Math.min(100, h.rh));
+    var st = sunTimes(new Date(h.t), state.watch[0], state.watch[1]);
+    var night = st.sunrise && st.sunset ? (h.t < st.sunrise.getTime() || h.t > st.sunset.getTime()) : false;
+    el('cTime').value = night ? 'night' : 'day';
+    el('calcSource').innerHTML = 'Set from the <b>worst forecast hour in the next 24 hours</b> for ' + esc(shortName(state.area)) + ': ' + esc(fmtDayHour(h.t)) + ' — wind ' + (h.wind == null ? '—' : h.wind + ' mph') + ', humidity ' + (h.rh == null ? '—' : h.rh + '%') + (h.gust != null ? ', gusts ' + h.gust + ' mph' : '') + '.';
+    renderCalc();
+  }
+  ['cWind', 'cRh', 'cTime'].forEach(function (id) {
+    el(id).addEventListener('input', function () { state.calcManual = true; el('calcSource').innerHTML = '<b>Set by hand.</b> Press Use live forecast to go back to the forecast.'; });
+  });
+  el('calcLive').addEventListener('click', function () { syncCalcFromLive(true); });
+
   // ---------- area picker ----------
   function buildPicker() {
-    var sel = el('areaSelect'), btns = '';
-    AREAS.forEach(function (a) {
-      var o = document.createElement('option'); o.value = a.key; o.textContent = a.name; sel.appendChild(o);
-      btns += '<button type="button" data-area-btn="' + esc(a.key) + '">' + esc(a.name.split(' (')[0]) + '</button> ';
-    });
-    el('areaButtons').innerHTML = btns;
+    var sel = el('areaSelect');
+    AREAS.forEach(function (a) { var o = document.createElement('option'); o.value = a.key; o.textContent = a.name; sel.appendChild(o); });
     sel.addEventListener('change', function () { setArea(sel.value); });
-    var bs = document.querySelectorAll('button[data-area-btn]');
-    for (var i = 0; i < bs.length; i++) bs[i].addEventListener('click', function (ev) { setArea(ev.currentTarget.getAttribute('data-area-btn')); });
   }
   function setArea(key) {
     var a = null;
@@ -2435,24 +2675,20 @@ body.crew .plan-only{display:none !important}
     state.cond = { fcGust: null, fcRh: null, obGust: null, obRh: null, obWhen: null };
     state.hours = null; state.hoursFailed = false; state.obsNearest = null; state.alertEvents = null;
     el('areaSelect').value = a.key;
-    el('watchLabel').textContent = a.name;
     el('watchCoords').textContent = a.watch[0].toFixed(4) + ', ' + a.watch[1].toFixed(4);
-    el('crewArea').textContent = a.name;
-    var bs = document.querySelectorAll('button[data-area-btn]');
-    for (var j = 0; j < bs.length; j++) bs[j].className = bs[j].getAttribute('data-area-btn') === a.key ? 'on' : '';
     if (map) { map.setView(a.center, a.zoom); if (watchMarker) watchMarker.setLatLng(a.watch).setPopupContent('<strong>Watch point</strong><br>' + esc(a.name)); }
     if (windPin && overlayGroups.wind) { overlayGroups.wind.removeLayer(windPin); windPin = null; }
     renderAllLinkRows();
     loadNotes();
-    renderSunMoon();
     renderNearestStations();
     renderCameras();
     if (state.camTimer) refreshCameras();
     if (state.lastFires) { try { renderFires(state.lastFires, true); } catch (e) { quiet(e); } } else el('firesFrom').textContent = shortName(a);
-    el('crewNow').innerHTML = ''; el('crewObs').textContent = ''; el('tlSummary').textContent = '';
+    el('tlSummary').textContent = '';
     setNote('timeline', 'Loading the hour-by-hour forecast…');
-    renderVerdict();
-    if (state.windyArmed) loadWindy();
+    state.windyFor = null;
+    if (el('windCard') && !el('windCard').classList.contains('collapsed')) { state.windyFor = a.key; loadWindy(); }
+    paintHero();
     loadWeather();
     return true;
   }
@@ -2464,7 +2700,6 @@ body.crew .plan-only{display:none !important}
     var w = state.watch;
     var point = w[0].toFixed(4) + ',' + w[1].toFixed(4);
     setNote('alerts', 'Checking NWS alerts for this location…');
-    setNote('now', 'Loading the latest hourly forecast…');
     setNote('days', 'Loading the 7-day forecast…');
     setNote('obs', 'Loading station readings…');
     el('zone').textContent = 'reading…';
@@ -2480,98 +2715,122 @@ body.crew .plan-only{display:none !important}
         if (!props.forecastHourly || !props.forecast) throw new Error('points reply had no forecast links');
         var hourlyDone = fetchJSON(props.forecastHourly, NWS_HEADERS)
           .then(function (hj) { if (run === weatherRun) renderNow(hj); return hj; })
-          .catch(function (e) { quiet(e); if (run === weatherRun) weatherFail('now'); return null; });
+          .catch(function (e) { quiet(e); return null; });
         var gridDone = props.forecastGridData
           ? fetchJSON(props.forecastGridData, NWS_HEADERS).then(hoursFromGrid).catch(function (e) { quiet(e); return null; })
           : Promise.resolve(null);
-        var crewDone = Promise.all([gridDone, hourlyDone]).then(function (r) {
+        var heroDone = Promise.all([gridDone, hourlyDone]).then(function (r) {
           if (run !== weatherRun) return;
           var hrs = r[0] || hoursFromHourly(r[1]);
           state.hoursSource = r[0] ? 'grid' : 'hourly';
-          if (!hrs) { crewFail(); return; }
+          if (!hrs) { heroFail(); return; }
           state.hours = hrs; state.hoursFailed = false;
           // the hourly forecast often has no gust; the grid does, so the threshold alert uses it
           if (state.cond.fcGust == null && hrs[0].gust != null) { state.cond.fcGust = hrs[0].gust; checkThresholds(); }
           if (state.cond.fcRh == null && hrs[0].rh != null) { state.cond.fcRh = hrs[0].rh; checkThresholds(); }
-          renderTimeline(hrs); renderCrewNow(); renderVerdict(); updateWindPin();
+          renderTimeline(hrs); paintHero(); updateWindPin();
           feedOK('forecast');
-        }).catch(function (e) { quiet(e); if (run === weatherRun) crewFail(); });
+        }).catch(function (e) { quiet(e); if (run === weatherRun) heroFail(); });
         var obsDone = loadObservations(props.observationStations, run);
         return fetchJSON(props.forecast, NWS_HEADERS)
           .then(function (dj) { return hourlyDone.then(function (hj) { if (run === weatherRun) renderDays(dj, hj); }); })
           .catch(function (e) { quiet(e); if (run === weatherRun) { weatherFail('days'); } })
-          .then(function () { return Promise.all([obsDone, crewDone]); });
+          .then(function () { return Promise.all([obsDone, heroDone]); });
       })
-      .catch(function (e) { quiet(e); if (run !== weatherRun) return; el('zone').textContent = 'unavailable'; feedFail('forecast'); feedFail('obs'); weatherFail('now'); weatherFail('days'); setNote('obs', offline() ? NO_NET : OBS_DOWN); crewFail(); });
+      .catch(function (e) { quiet(e); if (run !== weatherRun) return; el('zone').textContent = 'unavailable'; feedFail('forecast'); feedFail('obs'); weatherFail('days'); setNote('obs', offline() ? NO_NET : OBS_DOWN); heroFail(); });
     return Promise.all([a, p]);
+  }
+  function heroFail() {
+    state.hoursFailed = true;
+    setNote('timeline', offline() ? NO_NET : WEATHER_DOWN);
+    el('tlSummary').textContent = '';
+    paintHero();
   }
 
   // ---------- load everything (each piece fails on its own, the page never goes blank) ----------
   var loading = false;
+  function loadFires() {
+    return fetchJSON(NIFC_URL)
+      .then(function (j) { renderFires(j); })
+      .catch(function (e) { quiet(e); feedFail('fires'); firesFail(); });
+  }
   function loadAll() {
     if (loading) return;
     loading = true;
-    el('updated').textContent = nowStamp();
-    setNote('status', 'Checking live feeds…', 'sub no-print');
-    setNote('fires', 'Loading active fire incidents…');
+    el('updated').textContent = 'Updated ' + fmtClock(new Date());
+    setNote('status', 'Checking live feeds…', 'small muted');
     var w = loadWeather();
     refreshStart = Date.now();
-    var f = fetchJSON(NIFC_URL)
-      .then(function (j) { renderFires(j); })
-      .catch(function (e) { quiet(e); feedFail('fires'); firesFail(); });
-    if (state.camTimer || el('camSec').getBoundingClientRect().top < window.innerHeight) refreshCameras();
+    var f = loadFires();
+    if (state.camTimer) refreshCameras();
     refreshFireRoadsLive();
     Promise.all([w, f]).then(function () {
       loading = false;
       // a feed that did not answer in THIS refresh goes gray (it keeps its last-good time)
       ['forecast', 'alerts', 'obs', 'fires'].forEach(function (k) { if (!health[k] || !health[k].at || health[k].at < refreshStart) feedFail(k); });
-      setNote('status', 'Feeds checked ' + nowStamp() + ' · refreshes itself every 15 minutes while open', 'sub no-print');
+      setNote('status', 'Feeds checked ' + fmtClock(new Date()) + ' · refreshes itself every 15 minutes', 'small muted');
     }, function () { loading = false; });
   }
 
   // safety net: nothing ever reaches the console as an unhandled error, and the page stays readable
   window.addEventListener('error', function (ev) {
     try { ev.preventDefault(); } catch (e) {}
-    try { quiet(ev && ev.message); setNote('status', 'A live section hit a snag — the fixed facts are unaffected. Press Refresh.', 'sub no-print'); } catch (e) {}
+    try { quiet(ev && ev.message); setNote('status', 'A live section hit a snag — the fixed facts are unaffected. Press Refresh.', 'small muted'); } catch (e) {}
   });
   window.addEventListener('unhandledrejection', function (ev) {
     try { ev.preventDefault(); } catch (e) {}
     try { quiet(ev && ev.reason); } catch (e) {}
   });
+  // printing opens every card and drop-down, then puts them back
+  var printWasClosed = [];
   window.addEventListener('beforeprint', function () {
-    var ds = document.querySelectorAll('details');
-    for (var i = 0; i < ds.length; i++) { ds[i].setAttribute('data-was-open', ds[i].open ? '1' : '0'); ds[i].open = true; }
+    if (document.body.classList.contains('print-manual')) return;
+    printWasClosed = [];
+    var cs = document.querySelectorAll('.card.collapsed');
+    for (var i = 0; i < cs.length; i++) { printWasClosed.push(cs[i]); cs[i].classList.remove('collapsed'); }
+    var ds = document.querySelectorAll('details:not(.help)');
+    for (var j = 0; j < ds.length; j++) { ds[j].setAttribute('data-was-open', ds[j].open ? '1' : '0'); ds[j].open = true; }
   });
   window.addEventListener('afterprint', function () {
-    var ds = document.querySelectorAll('details');
-    for (var i = 0; i < ds.length; i++) { if (ds[i].getAttribute('data-was-open') === '0') ds[i].open = false; }
+    printWasClosed.forEach(function (c) { c.classList.add('collapsed'); });
+    var ds = document.querySelectorAll('details:not(.help)');
+    for (var j = 0; j < ds.length; j++) { if (ds[j].getAttribute('data-was-open') === '0') ds[j].open = false; }
   });
+
+  // ---------- card hooks: heavy things load only while their card is open ----------
+  cardHooks.camsCard = function (open) {
+    if (open) { refreshCameras(); if (!state.camTimer) state.camTimer = setInterval(refreshCameras, 60000); }
+    else if (state.camTimer) { clearInterval(state.camTimer); state.camTimer = null; }
+  };
+  cardHooks.windCard = function (open) {
+    if (open && state.windyFor !== state.area.key) { state.windyFor = state.area.key; state.windyArmed = true; loadWindy(); }
+  };
+  cardHooks.mapCard = function (open) { if (open && map) setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60); };
 
   // ---------- boot ----------
   var opens = (parseInt(storeGet('tww.opens') || '0', 10) || 0) + 1;   // storage self-check, visible in the notes hint
   storeSet('tww.opens', String(opens));
   var savedTheme = storeGet('tww.theme');
   applyTheme(savedTheme === 'light' ? 'light' : 'dark');
-  applyView(storeGet('tww.view') === 'plan' ? 'plan' : 'crew');
   loadThresholdSettings();
   buildPicker();
   try { initMap(); } catch (e) { quiet(e); setHTML('map', '<div class="note" style="margin:12px">Map could not start in this browser — everything else on the page still works.</div>', ''); }
-  setArea(AREAS[0].key);              // renders links, notes, sun/moon, stations, cameras, and starts the weather loaders
+  initCollapsibles();
+  addHelp();
+  buildManual();
+  setArea(AREAS[0].key);              // renders links, notes, stations, cameras, the dials, and starts the weather loaders
   renderCalc();
-  watchCameras();
-  watchWindy();
   try { if (map) drawBakedFireRoads(); } catch (e) { quiet(e); }
   renderHealth();
   try { setTimeout(refreshFireRoadsLive, 3000); } catch (e) {}
   el('refresh').addEventListener('click', function () { state.fireRoadsTried = false; loadAll(); });
   try { setInterval(loadAll, 15 * 60 * 1000); } catch (e) {}
-  // fires + stamp (weather already running from setArea)
-  el('updated').textContent = nowStamp();
-  fetchJSON(NIFC_URL).then(function (j) { renderFires(j); }).catch(function (e) { quiet(e); feedFail('fires'); firesFail(); }).then(function () { setNote('status', 'Feeds checked ' + nowStamp() + ' · refreshes itself every 15 minutes while open', 'sub no-print'); });
+  try { setInterval(paintDaylight, 60 * 1000); } catch (e) {}
+  el('updated').textContent = 'Updated ' + fmtClock(new Date());
+  loadFires().then(function () { setNote('status', 'Feeds checked ' + fmtClock(new Date()) + ' · refreshes itself every 15 minutes', 'small muted'); });
 
   // test / automation hooks (read-only helpers; nothing here touches the network on its own)
   window.TWW.setArea = setArea;
-  window.TWW.setView = applyView;
   window.TWW.measureBetween = measureBetween;
   window.TWW.setMeasureMode = setMeasureMode;
   window.TWW.mapClick = function (lat, lon) { if (!map) return false; map.fire('click', { latlng: L.latLng(lat, lon) }); return true; };
@@ -2588,8 +2847,11 @@ body.crew .plan-only{display:none !important}
   window.TWW.fireRoadCount = function () { return document.querySelectorAll('path.fire-road').length; };
   window.TWW.checkStale = checkStale;
   window.TWW.setLastOK = function (key, ms) { lastOK[key] = ms; checkStale(); };
-  // test hook: feed the conditions card a made-up 24 hours (no network) to see each level render
-  window.TWW.testHours = function (hrs) { state.hours = hrs; state.hoursSource = 'grid'; renderTimeline(hrs); renderCrewNow(); renderVerdict(); updateWindPin(); };
+  window.TWW.briefing = briefingText;
+  // test hooks: feed made-up data (no network) to see each level render
+  window.TWW.testHours = function (hrs) { state.hours = hrs; state.hoursSource = 'grid'; renderTimeline(hrs); paintHero(); updateWindPin(); };
+  window.TWW.testAlerts = function (evs) { state.alertEvents = evs; paintHero(); };
+  window.TWW.testFires = function (j) { renderFires(j); };
 })();
 
 </script>
