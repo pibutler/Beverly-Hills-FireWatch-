@@ -15,13 +15,17 @@
 <!--
   Beverly Hills Wildfire Watch — one self-contained file. No install, no login, no key, no server, no paid service, no AI calls.
   Phase 1 (2026-09-07): live NWS fire weather + alerts, NIFC active fires, the fixed Trousdale card.
-  Phase 2 (2026-09-07): dark mode, built-in Leaflet map (terrain / USGS topo / satellite / streets), live fire-road layer
-  (Overpass), SOC overlays traced from public street geometry, click-for-spot-forecast, area picker, per-area links,
-  Windy wind window, observed station readings, ALERTCalifornia camera frames, heat / smoke / evacuation / road links,
-  resource calculator, measure tool, per-area notes, briefing print, sun / moon, pre-attack reference, phone-ready.
+  Phase 2 (2026-09-07): dark mode, built-in Leaflet map, live fire-road layer (Overpass), SOC overlays traced from public
+  street geometry, click-for-spot-forecast, area picker, per-area links, Windy wind window, observed station readings,
+  ALERTCalifornia camera frames, heat / smoke / evacuation / road links, resource calculator, measure tool, per-area notes,
+  briefing print, sun / moon, pre-attack reference, phone-ready.
+  Phase 4 (2026-10-02): Crew view / Planning view toggle; conditions card with a Red Flag / Elevated / Normal verdict;
+  24-hour hour-by-hour wind, gust and humidity timeline from the NWS gridpoint forecast; map trimmed to three base layers
+  (satellite with street names as default, USGS topo, streets); wind arrow at the watch point; fewer, grouped map layers;
+  fire and camera distances now follow the selected area.
   Patrick Butler. Home: apps/trousdale-wildfire-watch/ (F49).
   Inlined library: Leaflet 1.9.4 (BSD 2-Clause) — between the leaflet-css / leaflet-js markers below, license kept.
-  Map data: OpenStreetMap contributors (ODbL) via Overpass; tiles from OpenTopoMap (CC-BY-SA), USGS, Esri, OSM.
+  Map data: OpenStreetMap contributors (ODbL) via Overpass; tiles from Esri, USGS, OSM.
 -->
 <style id="leaflet-css">/* leaflet-css-start */
 /* required styles */
@@ -685,28 +689,35 @@ svg.leaflet-image-layer.leaflet-interactive path {
 		print-color-adjust: exact;
 		}
 	}
+
 /* leaflet-css-end */</style>
 <style>
 :root{
   --bg:#0b1220;--panel:#111a2e;--ink:#e5e7eb;--muted:#9aa7bd;--line:#26334d;--card:#0f172a;--head:#0f172a;--headink:#f8fafc;--sub:#a8b3c7;
   --note:#1c2740;--noteink:#c7d0e0;--ok:#052e16;--okink:#86efac;--okline:#14532d;--flagbg:#3b1d0b;--link:#93c5fd;--btn:#1e293b;--btnink:#f1f5f9;--btnline:#475569;
   --red:#b91c1c;--orange:#c2410c;--table:#0f172a;--th:#162036;--popupbg:#111a2e;--popupink:#e5e7eb;
+  --lvred:rgba(220,38,38,.42);--lvorange:rgba(234,88,12,.30);
 }
 :root[data-theme="light"]{
   --bg:#ffffff;--panel:#ffffff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--card:#fafafa;--head:#1e293b;--headink:#ffffff;--sub:#cbd5e1;
   --note:#f3f4f6;--noteink:#4b5563;--ok:#ecfdf5;--okink:#166534;--okline:#bbf7d0;--flagbg:#fff7ed;--link:#1d4ed8;--btn:#ffffff;--btnink:#1e293b;--btnline:#94a3b8;
   --table:#ffffff;--th:#f8fafc;--popupbg:#ffffff;--popupink:#111827;
+  --lvred:rgba(220,38,38,.22);--lvorange:rgba(234,88,12,.18);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:1.45}
-header{background:var(--head);color:var(--headink);padding:18px 24px 14px;border-bottom:1px solid var(--line)}
+header{background:var(--head);color:var(--headink);padding:18px 24px 14px;padding-top:calc(18px + env(safe-area-inset-top, 0px));border-bottom:1px solid var(--line)}
 header h1{margin:0 0 4px;font-size:28px;line-height:1.2}
 .sub{color:var(--sub);font-size:15px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 button,select{font:inherit;font-size:15px;padding:7px 14px;border-radius:8px;border:1px solid var(--btnline);background:var(--btn);color:var(--btnink);cursor:pointer}
 button:hover{filter:brightness(1.15)}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
 button.on{background:#c2410c;color:#fff;border-color:#c2410c}
-main{max-width:1100px;margin:0 auto;padding:16px 24px 40px}
+.viewtoggle{display:inline-flex;border:1px solid var(--btnline);border-radius:8px;overflow:hidden}
+.viewtoggle button{border:0;border-radius:0;font-weight:600}
+.viewtoggle button+button{border-left:1px solid var(--btnline)}
+main{max-width:1100px;margin:0 auto;padding:16px 24px 40px;padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px))}
 section{margin:26px 0}
 h2{font-size:22px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}
 h3{font-size:17px;margin:14px 0 6px}
@@ -793,15 +804,51 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
 #thresholdBanner.show{display:block}
 #thresholdBanner .small2{display:block;font-weight:400;font-size:14px;margin-top:4px;opacity:.92}
 @keyframes tww-pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,.55)}50%{box-shadow:0 0 0 10px rgba(185,28,28,0)}}
+@media (prefers-reduced-motion:reduce){#thresholdBanner{animation:none}}
+/* phase 4: crew view, conditions card, 24-hour timeline, wind arrow */
+body.crew .plan-only{display:none !important}
+.verdict{border-radius:12px;padding:16px 18px 14px;margin-bottom:14px}
+.verdict.red{background:var(--red);color:#fff}
+.verdict.orange{background:var(--orange);color:#fff}
+.verdict.green{background:var(--ok);color:var(--okink);border:1px solid var(--okline)}
+.verdict.warn{border-left:10px solid #dc2626}
+.verdict.wait{background:var(--note);color:var(--noteink)}
+.verdict .lvl{font-size:34px;font-weight:800;line-height:1.1}
+.verdict .why{margin:6px 0 0;padding-left:20px}
+.verdict .why li{margin:3px 0}
+.verdict .ahead{margin-top:10px;padding-top:9px;border-top:1px solid currentColor;font-weight:600;opacity:.95}
+.warr{display:inline-block;font-weight:800;line-height:1}
+.big .n .warr{font-size:34px;margin-right:6px;vertical-align:4px}
+#crewObs{margin:-2px 0 4px}
+#areaSelect{max-width:100%}
+@media (max-width:600px){body.crew .health,body.crew #status{display:none}}
+.tlwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--table)}
+.tl{width:auto;min-width:100%;font-size:14px;background:transparent}
+.tl th,.tl td{padding:6px 7px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line);vertical-align:middle}
+.tl th{position:sticky;left:0;z-index:1;text-align:left;background:var(--th);font-weight:600}
+.tl td.r{background:var(--lvred)}
+.tl td.o{background:var(--lvorange)}
+.tl td.now{box-shadow:inset 0 3px 0 #f59e0b}
+.tl td.day{border-left:2px solid var(--muted)}
+.tl tr.lv td{font-size:12px;font-weight:700}
+.tl tr.hr td{font-weight:600}
+.tl .warr{font-size:18px}
+#tlSummary{margin:0 0 8px}
+.windpin{display:inline-flex;align-items:center;gap:5px;transform:translate(-50%,-50%);background:rgba(15,23,42,.9);color:#fff;border:2px solid #fff;border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.55)}
+.windpin.r{border-color:#f87171}
+.windpin.o{border-color:#fb923c}
+.windpin .warr{font-size:17px}
+.leaflet-div-icon.windicon{background:transparent;border:0}
 @media print{#thresholdBanner{animation:none;border:2px solid #000;background:#fff !important;color:#000}}
-@media (max-width:600px){header h1{font-size:22px}.big .n{font-size:36px}main{padding:12px 12px 32px}body{font-size:16px}#map{height:480px}.wind iframe{height:360px}}
+@media (max-width:600px){header h1{font-size:22px}.big .n{font-size:36px}.verdict .lvl{font-size:28px}main{padding:12px 12px 32px}body{font-size:16px}#map{height:480px}.wind iframe{height:360px}header{padding-left:14px;padding-right:14px}}
 @media print{
-  :root{--bg:#fff;--panel:#fff;--ink:#000;--muted:#333;--line:#999;--card:#fff;--head:#fff;--headink:#000;--sub:#333;--note:#f3f3f3;--noteink:#222;--ok:#fff;--okink:#000;--okline:#000;--flagbg:#fff;--link:#000;--btn:#fff;--btnink:#000;--btnline:#000;--table:#fff;--th:#eee}
+  :root{--bg:#fff;--panel:#fff;--ink:#000;--muted:#333;--line:#999;--card:#fff;--head:#fff;--headink:#000;--sub:#333;--note:#f3f3f3;--noteink:#222;--ok:#fff;--okink:#000;--okline:#000;--flagbg:#fff;--link:#000;--btn:#fff;--btnink:#000;--btnline:#000;--table:#fff;--th:#eee;--lvred:#ddd;--lvorange:#eee}
   @page{margin:12mm}
   html,body{background:#fff;color:#000}
   .no-print,.print-hide{display:none !important}
+  body.crew .plan-only:not(.print-hide):not(.no-print){display:block !important}
   header{background:#fff;color:#000;border-bottom:2px solid #000;padding:0 0 8px}
-  .alert{border:2px solid #000;color:#000;background:#fff !important}
+  .alert,.verdict{border:2px solid #000;color:#000 !important;background:#fff !important}
   .alert pre{background:#fff;border:1px solid #999}
   a{color:#000;text-decoration:none}
   tr.flag{background:#fff}
@@ -813,11 +860,15 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
 }
 </style>
 </head>
-<body>
+<body class="crew">
 <header>
   <h1>Beverly Hills Wildfire Watch</h1>
   <div class="sub">Watch point: <strong id="watchLabel">Trousdale Estates</strong> · <span id="watchCoords">34.1060, -118.4050</span> · NWS fire weather zone: <span id="zone">reading…</span></div>
   <div class="bar">
+    <div class="viewtoggle no-print" role="group" aria-label="Choose a view">
+      <button id="viewCrew" type="button" aria-pressed="true" title="Conditions, timeline, alerts, map, fires — built for a phone in the rig">Crew view</button>
+      <button id="viewPlan" type="button" aria-pressed="false" title="Everything: forecasts, observations, calculator, SOC reference, notes">Planning view</button>
+    </div>
     <div class="sub">Last updated: <strong id="updated">—</strong></div>
     <button id="refresh" class="no-print" type="button">Refresh</button>
     <button id="themeToggle" class="no-print" type="button" title="Switch between dark and light">Light</button>
@@ -826,7 +877,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   </div>
   <div class="health no-print" id="health" aria-label="Live feed health"></div>
   <div id="thresholdBanner" role="alert"></div>
-  <details class="no-print" id="alertSettings">
+  <details class="no-print plan-only" id="alertSettings">
     <summary style="cursor:pointer;font-weight:600;font-size:15px;padding:4px 0">Alert thresholds<span class="small" id="thresholdSummary"></span></summary>
     <div class="threshold-bar">
       <div class="field"><label for="thWind">Alert if wind gust ≥ (mph)</label><input id="thWind" type="number" min="0" max="120" step="1"></div>
@@ -841,11 +892,22 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   <div class="picker no-print">
     <label class="sub" for="areaSelect">Area:</label>
     <select id="areaSelect" aria-label="Pick an area"></select>
-    <span id="areaButtons"></span>
+    <span id="areaButtons" class="plan-only"></span>
   </div>
-  <div class="linkrow no-print" id="areaLinks" data-area="__current__"></div>
+  <div class="linkrow no-print plan-only" id="areaLinks" data-area="__current__"></div>
 </header>
 <main>
+  <section id="crewSec">
+    <h2 id="h2-crew">Conditions at <span id="crewArea">Trousdale Estates</span><span class="asof" id="asof-crew"></span></h2>
+    <div id="verdict" class="verdict wait" aria-live="polite"><div class="lvl">Reading the forecast…</div></div>
+    <div id="crewNow" class="big"></div>
+    <div id="crewObs" class="small"></div>
+    <h3>Next 24 hours</h3>
+    <div id="tlSummary"></div>
+    <div id="timeline" class="tlwrap"><div class="note">Loading the hour-by-hour forecast…</div></div>
+    <p class="small">Shaded hours meet the City's Red Flag triggers (red: humidity 15% or lower, or sustained wind 25 mph or more) or are elevated (orange: humidity 20% or lower with wind 15 mph or more, or gusts 35 mph or more). Arrows point the way the wind is blowing. Source: NWS gridpoint forecast for the watch point. The City's third trigger, burning index 151 or more, is not in this feed.</p>
+  </section>
+
   <section id="alerts-sec" aria-live="polite">
     <div id="alerts" class="note">Checking NWS alerts for this location…</div>
     <div class="small" id="asof-alerts"></div>
@@ -858,11 +920,12 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
       <button id="measureClear" type="button">Clear</button>
       <span id="measureOut" class="small">Click Measure, then click two points on the map.</span>
     </div>
-    <div id="map" role="application" aria-label="Map of the Trousdale area"></div>
+    <div id="map" role="application" aria-label="Map of the Beverly Hills hillside areas"></div>
     <div id="mapNote" class="note" hidden>Map tiles unavailable right now (no internet?) — the overlays and the fire roads still draw from this file. Reopen or press Refresh.</div>
     <div id="tileNote" class="note" hidden></div>
     <div id="fireroadNote" class="small">Fire roads: drawing from this file…</div>
     <div class="legend">
+      <div>Base maps: satellite with street names (default), USGS topo for slope and drainages, streets for addresses — switch in the layers button, top right.</div>
       <div><i style="background:#f97316"></i>Fire roads: OpenStreetMap, captured 2026-09-07 (named fire roads, truck trails, fire service roads, unpaved tracks; © OpenStreetMap contributors, ODbL) — baked into this file, refreshed from the live map when it answers ·
       <i style="background:rgba(220,38,38,.35);border:1px solid #dc2626"></i>Trousdale Estates ·
       <i style="background:rgba(249,115,22,.35);border:1px solid #f97316"></i>Upper Coldwater / Loma Linda ·
@@ -870,7 +933,8 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
       <i style="background:#dc2626"></i>Map 23 evacuation segments (Carla Ridge, Loma Vista) ·
       <i style="background:#facc15;border-radius:50%"></i>SOC simulation ignition points ·
       <i style="background:#2563eb;border-radius:50%"></i>Fire stations ·
-      <i style="background:#a855f7;border-radius:50%"></i>Cameras</div>
+      <i style="background:#a855f7;border-radius:50%"></i>Cameras ·
+      <i style="background:#0f172a;border:2px solid #fff;border-radius:50%"></i>Wind at the watch point (this hour's forecast; the arrow points the way the wind is blowing)</div>
       <div>Overlays are approximations for orientation, traced from SOC Maps 20–23 and public street geometry (OpenStreetMap). They are not survey data. Click anywhere on the map for a spot forecast.</div>
     </div>
   </section>
@@ -881,24 +945,24 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     <p class="small">Straight-line distance and bearing from the current watch point, sorted closest first, across BHFD and the LAFD/LA County stations nearest the hillside areas. The drive-time column is a rough estimate (straight-line distance ÷ 20 mph, a stand-in for winding canyon roads) — not real routing, and not an official first-due assignment. Confirm actual dispatch/first-due through CAD or your battalion chief.</p>
   </section>
 
-  <section>
+  <section class="plan-only">
     <h2 id="h2-now">Right now<span class="asof" id="asof-now"></span></h2>
     <div id="now" class="note">Loading the latest hourly forecast…</div>
   </section>
 
-  <section>
+  <section class="plan-only">
     <h2 id="h2-days">Next 7 days<span class="asof" id="asof-days"></span></h2>
     <p class="small">A row is flagged <span class="badge">Santa Ana pattern</span> when the wind comes from the north, northeast, or east AND the humidity is 20% or lower, or when the NWS forecast text says "Santa Ana", "offshore", or "red flag".</p>
     <div id="days" class="note">Loading the 7-day forecast…</div>
   </section>
 
-  <section id="windSec" class="print-hide">
+  <section id="windSec" class="print-hide plan-only">
     <h2 id="h2-wind">Live wind window<span class="asof" id="asof-windy"></span></h2>
     <p class="small">Windy.com wind map centered on the watch point (loads when you scroll here). <a id="windyLink" href="#" target="_blank" rel="noopener">Open Windy in a new tab</a></p>
     <div id="wind" class="wind"><div class="note">The wind window loads when it scrolls into view.</div></div>
   </section>
 
-  <section id="obsSec" class="print-hide">
+  <section id="obsSec" class="print-hide plan-only">
     <h2 id="h2-obs">Observed weather — real readings, not forecast<span class="asof" id="asof-obs"></span></h2>
     <p class="small">Latest readings from NWS-listed stations within 15 miles of the watch point (Santa Monica, Burbank, Van Nuys always included). Mountain RAWS stations relayed through NWS appear here when in range; their own pages are linked below.</p>
     <div id="obs" class="note">Loading station readings…</div>
@@ -907,24 +971,24 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
 
   <section id="camSec" class="print-hide">
     <h2 id="h2-cams">Fire cameras<span class="asof" id="asof-cams"></span></h2>
-    <p class="small">Latest frames from the ALERTCalifornia public cameras nearest Trousdale, Mulholland and Franklin Canyon. Frames refresh every minute while this section is on screen; click a frame to open the live camera. Credit: ALERTCalifornia / UC San Diego, shown unmodified under CC BY-NC-ND 4.0 (non-commercial).</p>
+    <p class="small">Latest frames from the ALERTCalifornia public cameras nearest the hillside areas. Frames refresh every minute while this section is on screen; click a frame to open the live camera. Credit: ALERTCalifornia / UC San Diego, shown unmodified under CC BY-NC-ND 4.0 (non-commercial).</p>
     <div id="cams" class="cams"></div>
     <p class="small"><a href="https://cameras.alertcalifornia.org/" target="_blank" rel="noopener">All ALERTCalifornia cameras</a></p>
   </section>
 
   <section>
     <h2 id="h2-fires">Active fires nearby<span class="asof" id="asof-fires"></span></h2>
-    <p class="small">Source: NIFC WFIGS current incidents inside the Santa Monica Mountains / LA basin box (about -118.75 to -118.10 west to east, 33.90 to 34.35 south to north). Distance is a straight line from Trousdale Estates.</p>
+    <p class="small">Source: NIFC WFIGS current incidents inside the Santa Monica Mountains / LA basin box (about -118.75 to -118.10 west to east, 33.90 to 34.35 south to north). Distance is a straight line from the selected watch point, <span id="firesFrom">Trousdale Estates</span>.</p>
     <div id="fires" class="note">Loading active fire incidents…</div>
   </section>
 
-  <section id="linksLiveSec" class="print-hide">
+  <section id="linksLiveSec" class="print-hide plan-only">
     <h2>Heat, smoke, evacuation, roads</h2>
     <ul class="links" id="liveLinks"></ul>
     <p class="small">These open the public maps in a new tab, centered on the watch point. No key, no account.</p>
   </section>
 
-  <section id="calcSec" class="print-hide">
+  <section id="calcSec" class="print-hide plan-only">
     <h2>Resource calculator</h2>
     <p class="small">Local math only — nothing is sent anywhere. The tiers are Juliet's planning model from the SOC report, Section 5 (built on the SOC's own numbers). Move the sliders and pick the conditions.</p>
     <div class="calc">
@@ -937,13 +1001,13 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     <p class="small">How it decides: humidity 15% or lower OR sustained wind 25 mph or more = the City's own Red Flag triggers (gap analysis, City Red Flag page), so the wind-driven model applies. Humidity 20% or lower with wind 15 mph or more = elevated, plan the wind-driven model and pre-position. Otherwise the ordinary-day first alarm applies. Sustained wind above 40 mph or night = do not count aircraft (gap analysis, Part 3).</p>
   </section>
 
-  <section id="sunSec">
+  <section id="sunSec" class="plan-only">
     <h2>Sun and moon</h2>
     <div class="sunmoon" id="sunmoon"></div>
     <p class="small">Computed on this computer for the watch point with the standard NOAA solar equations (no network). Santa Ana wind season runs about September through April, strongest in the fall and early winter.</p>
   </section>
 
-  <section id="refSec" class="print-hide">
+  <section id="refSec" class="print-hide plan-only">
     <h2>Pre-attack quick reference</h2>
     <details class="ref">
       <summary>The fifteen SOC operational areas</summary>
@@ -964,7 +1028,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     </details>
   </section>
 
-  <section>
+  <section class="plan-only">
     <h2>The Trousdale card — fixed facts from our reports</h2>
     <div class="card">
       <ul>
@@ -981,14 +1045,14 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     </div>
   </section>
 
-  <section id="notesSec">
+  <section id="notesSec" class="plan-only">
     <h2>Notes — <span id="notesArea">Trousdale Estates</span></h2>
     <p class="small" id="notesHint">Notes stay on this computer. Each area has its own note.</p>
     <textarea id="notes" placeholder="Type notes for this area — staging spots, contacts, what you saw on the ground…"></textarea>
     <div class="bar no-print"><button id="notesDownload" type="button">Download my notes</button><span class="small" id="notesStatus"></span></div>
   </section>
 
-  <section id="linksSec" class="print-hide">
+  <section id="linksSec" class="print-hide plan-only">
     <h2>Links</h2>
     <ul class="links">
       <li><a href="https://www.beverlyhills.org/DocumentCenter/View/16064/2026-2030-CRASOC" target="_blank" rel="noopener">BHFD 2026–2030 Community Risk Assessment / Standards of Cover (PDF, City of Beverly Hills)</a></li>
@@ -1004,7 +1068,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   </section>
 
   <footer> Developer Patrick Butler Wildfire Watch. For situational awareness only. Data may not be accurate or delayed : NOAA/NWS and NIFC WFIGS. Fixed facts: BHFD 2026–2030 Standards of Cover.
-    <div class="small" style="margin-top:8px">Sources: OpenStreetMap / Overpass fire roads, OpenTopoMap, USGS, Esri and OpenStreetMap tiles, Windy.com, ALERTCalifornia cameras.</div>
+    <div class="small" style="margin-top:8px">Sources: OpenStreetMap / Overpass fire roads, Esri World Imagery and reference labels, USGS The National Map, OpenStreetMap tiles, Windy.com, ALERTCalifornia cameras.</div>
   </footer>
 </main>
 
@@ -1045,15 +1109,20 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   // from this file with no network. The live Overpass call is only a background refresh that merges new ways on top.
   var BAKED_META = {"captured":"2026-09-07","source":"OpenStreetMap via overpass-api.de","capturedAt":"2026-09-07T21:56:17","ways":73};
   var BAKED_FIRE_ROADS = [{"i":13255570,"n":"","k":"track (unpaved)","c":[[34.123394,-118.454769],[34.123429,-118.454629],[34.123697,-118.454424],[34.124166,-118.453839],[34.124427,-118.453653],[34.124387,-118.453556],[34.123787,-118.453878],[34.123575,-118.45392],[34.123002,-118.453866],[34.122921,-118.453771],[34.122921,-118.453684],[34.123156,-118.453272],[34.123208,-118.452685],[34.123067,-118.452523],[34.122943,-118.452492],[34.122423,-118.452555],[34.12211,-118.452289],[34.121762,-118.452206],[34.121235,-118.452356],[34.12059,-118.45237]]},{"i":13256261,"n":"","k":"track (unpaved)","c":[[34.12059,-118.45237],[34.119888,-118.452176],[34.119469,-118.452128],[34.118145,-118.452394],[34.117947,-118.452495]]},{"i":13264256,"n":"","k":"track (unpaved)","c":[[34.12417,-118.454302],[34.124513,-118.454074],[34.125475,-118.453091],[34.125785,-118.45296],[34.126048,-118.452944]]},{"i":13329302,"n":"Betty B. Dearing Trail","k":"track (unpaved)","c":[[34.133694,-118.395416],[34.133981,-118.396533],[34.134196,-118.397161],[34.13405,-118.397662],[34.134349,-118.399022],[34.134219,-118.399471],[34.134285,-118.399991],[34.133708,-118.400451],[34.133544,-118.400712],[34.133549,-118.400988],[34.13401,-118.401251],[34.134189,-118.40162],[34.134907,-118.40221],[34.134954,-118.402363],[34.134923,-118.402501],[34.134763,-118.402626],[34.134437,-118.40266],[34.133903,-118.402636],[34.133732,-118.402721],[34.133605,-118.402876],[34.133517,-118.403299],[34.133543,-118.40345],[34.133641,-118.403574],[34.133946,-118.403696],[34.134035,-118.403784],[34.13406,-118.403909],[34.134004,-118.404017],[34.13362,-118.404339],[34.133517,-118.404545],[34.133493,-118.404886],[34.133425,-118.404924],[34.133295,-118.404872],[34.133195,-118.404732],[34.133111,-118.404348],[34.132988,-118.40424],[34.13233,-118.404334],[34.131946,-118.404568],[34.131548,-118.404632],[34.131307,-118.404841],[34.131136,-118.404922],[34.130914,-118.404945],[34.13065,-118.404939],[34.130319,-118.404785],[34.129885,-118.404724],[34.129591,-118.404584],[34.129494,-118.404282],[34.129496,-118.404041],[34.129852,-118.403462],[34.129922,-118.403254],[34.129924,-118.403041],[34.129809,-118.40285],[34.129489,-118.402689],[34.129409,-118.402551],[34.129533,-118.402365],[34.130053,-118.402021],[34.130178,-118.401876],[34.13035,-118.401094],[34.130382,-118.40063],[34.130322,-118.400496],[34.130154,-118.40038],[34.129686,-118.400458],[34.12949,-118.400406],[34.129407,-118.40025],[34.129398,-118.4001],[34.129474,-118.399647],[34.129447,-118.399479],[34.129086,-118.399311],[34.128981,-118.399161]]},{"i":13329305,"n":"Maxwell Fire Road","k":"fire road","c":[[34.129037,-118.406913],[34.129137,-118.406752],[34.129211,-118.406229],[34.129514,-118.405584],[34.129567,-118.405333],[34.129662,-118.405295],[34.129711,-118.405378],[34.129636,-118.405477],[34.129555,-118.405383]]},{"i":13348828,"n":"Lisbon Lane","k":"track (unpaved)","c":[[34.098649,-118.443809],[34.098709,-118.443714],[34.098845,-118.443689],[34.09928,-118.443899]]},{"i":13408457,"n":"Hastain Trail","k":"track (unpaved)","c":[[34.111511,-118.415186],[34.111337,-118.414927],[34.111186,-118.414796],[34.110983,-118.414734],[34.110568,-118.414782],[34.110447,-118.414573],[34.11037,-118.414526],[34.110297,-118.414563],[34.110192,-118.414874],[34.110117,-118.414942],[34.109869,-118.414842],[34.109676,-118.414905],[34.109468,-118.414864],[34.109359,-118.414784],[34.109343,-118.414505],[34.109247,-118.414445],[34.109152,-118.414485],[34.108765,-118.41495],[34.108231,-118.414976],[34.108144,-118.414852],[34.108185,-118.414554],[34.108146,-118.414447],[34.108037,-118.4144],[34.107707,-118.414486],[34.107655,-118.414428],[34.107596,-118.414162],[34.107304,-118.414116],[34.107117,-118.413787],[34.107135,-118.4136],[34.107384,-118.413327],[34.107403,-118.413021],[34.1077,-118.41294],[34.107785,-118.412862],[34.107669,-118.412505],[34.107793,-118.411815],[34.10792,-118.411696],[34.108298,-118.411696],[34.108359,-118.411645],[34.10836,-118.411547],[34.108246,-118.411377],[34.108246,-118.411225],[34.108332,-118.411107],[34.108703,-118.410938],[34.108773,-118.410616],[34.108969,-118.410366],[34.108967,-118.410235],[34.108897,-118.410099],[34.108534,-118.410144],[34.108331,-118.40997],[34.108245,-118.409975],[34.108194,-118.410064],[34.108175,-118.410322],[34.108073,-118.410493],[34.107926,-118.410551],[34.107665,-118.410435],[34.107586,-118.410445],[34.107194,-118.410853],[34.106974,-118.41125],[34.106883,-118.411295],[34.106822,-118.41122],[34.10683,-118.411131],[34.107442,-118.410141],[34.107752,-118.410026],[34.107738,-118.409552],[34.107862,-118.409283],[34.108073,-118.409004],[34.108373,-118.408901],[34.108567,-118.408888],[34.109095,-118.408683],[34.109488,-118.408348],[34.109621,-118.408303],[34.10995,-118.408327],[34.110075,-118.408381],[34.11022,-118.40854],[34.110466,-118.408511],[34.110722,-118.408693],[34.110798,-118.408658],[34.110983,-118.408388]]},{"i":24561697,"n":"Franklin Canyon Drive Admin Access","k":"track (unpaved)","c":[[34.124308,-118.409611],[34.124054,-118.409982],[34.12373,-118.409925],[34.123515,-118.409972],[34.123219,-118.410386],[34.123146,-118.4104],[34.122902,-118.410307],[34.122716,-118.410386],[34.122656,-118.410676],[34.122786,-118.410961],[34.1228,-118.411141],[34.122594,-118.411733],[34.122468,-118.411898],[34.122369,-118.411902],[34.122217,-118.411815],[34.122023,-118.411186],[34.121856,-118.410928],[34.121664,-118.410943],[34.12152,-118.411273],[34.121418,-118.411351],[34.121332,-118.411337],[34.12108,-118.411123],[34.120915,-118.411142],[34.120822,-118.411279],[34.120808,-118.411429],[34.121088,-118.412242],[34.121083,-118.412579],[34.120992,-118.412673],[34.12084,-118.412675],[34.120537,-118.412368],[34.120206,-118.412139],[34.120124,-118.412137],[34.120048,-118.412272],[34.12025,-118.413075],[34.120221,-118.413321],[34.120049,-118.413451],[34.119935,-118.413449],[34.119731,-118.413082]]},{"i":24562747,"n":"Blinderman Trail","k":"track (unpaved)","c":[[34.122459,-118.40714],[34.122554,-118.407733]]},{"i":70463122,"n":"West Granito Drive","k":"track (unpaved)","c":[[34.104383,-118.361393],[34.103851,-118.361383],[34.10368,-118.361432],[34.103622,-118.361493],[34.103575,-118.361617],[34.103582,-118.361796],[34.103955,-118.362352],[34.103991,-118.362663],[34.103893,-118.362875],[34.103558,-118.363135],[34.103391,-118.36314],[34.103229,-118.363226]]},{"i":139428863,"n":"Briarcliff Fire Road","k":"fire road","c":[[34.126616,-118.381347],[34.126737,-118.382861],[34.126644,-118.383058],[34.126199,-118.3834],[34.1261,-118.383609],[34.126157,-118.383869],[34.126417,-118.384064],[34.126504,-118.384211],[34.126471,-118.384764],[34.126394,-118.384997],[34.126263,-118.385195],[34.1255,-118.3858]]},{"i":159519102,"n":"Hillcrest Drive","k":"track (unpaved)","c":[[34.100873,-118.41521],[34.100619,-118.415039],[34.09997,-118.414365],[34.099474,-118.41401],[34.099198,-118.41367],[34.099193,-118.41353],[34.099504,-118.413559],[34.099919,-118.413706],[34.100362,-118.41407],[34.100733,-118.414085],[34.10147,-118.414317],[34.101734,-118.414574],[34.101815,-118.414905]]},{"i":186870718,"n":"","k":"track (unpaved)","c":[[34.111341,-118.406287],[34.111538,-118.406101],[34.111603,-118.406114],[34.11161,-118.406228],[34.111403,-118.406501],[34.11128,-118.406775],[34.110611,-118.406765],[34.110466,-118.406883],[34.110838,-118.407879],[34.110695,-118.408101],[34.110266,-118.40837],[34.11034,-118.408512]]},{"i":203680194,"n":"","k":"track (unpaved)","c":[[34.099949,-118.439641],[34.099904,-118.4391],[34.099842,-118.439002],[34.099536,-118.439102],[34.099049,-118.438975],[34.098616,-118.43858],[34.098019,-118.438249],[34.097656,-118.438328],[34.097261,-118.438318]]},{"i":215934940,"n":"Newcomb Drive","k":"track (unpaved)","c":[[34.135153,-118.423345],[34.135512,-118.423536],[34.135734,-118.423445],[34.136351,-118.423698],[34.136825,-118.423554],[34.137129,-118.423637]]},{"i":215934942,"n":"Dixie Canyon Avenue","k":"track (unpaved)","c":[[34.135124,-118.428476],[34.134843,-118.428588],[34.134023,-118.428567],[34.133897,-118.42845],[34.133717,-118.428134],[34.133102,-118.428123],[34.132913,-118.427772],[34.132424,-118.427478],[34.132338,-118.427278],[34.132342,-118.427079],[34.132447,-118.426988],[34.132659,-118.426913],[34.133134,-118.426982],[34.133294,-118.426954],[34.133597,-118.426442],[34.133754,-118.426406],[34.133982,-118.426609],[34.134147,-118.426618],[34.134546,-118.426315],[34.134842,-118.426243],[34.135183,-118.425873],[34.135515,-118.425864],[34.135948,-118.425537],[34.136275,-118.425527]]},{"i":243116722,"n":"","k":"track (unpaved)","c":[[34.126807,-118.398489],[34.126723,-118.398143],[34.127018,-118.397894],[34.12707,-118.39773],[34.127041,-118.39755],[34.126784,-118.397226],[34.126949,-118.397072],[34.127079,-118.396668]]},{"i":243116729,"n":"Barker Fire Road","k":"fire road","c":[[34.127602,-118.397951],[34.127502,-118.398297],[34.127407,-118.39839],[34.127283,-118.398443],[34.126807,-118.398489],[34.126681,-118.398645],[34.126654,-118.398815],[34.126754,-118.399495],[34.126714,-118.39965],[34.126537,-118.399926]]},{"i":243116973,"n":"Briarcliff Fire Road","k":"fire road","c":[[34.1255,-118.3858],[34.125474,-118.385969],[34.125518,-118.386137],[34.126428,-118.386959],[34.126502,-118.387145],[34.126509,-118.387398]]},{"i":243627262,"n":"","k":"track (unpaved)","c":[[34.111752,-118.407695],[34.11135,-118.40784],[34.110745,-118.408417],[34.110288,-118.408434]]},{"i":243630016,"n":"","k":"track (unpaved)","c":[[34.123983,-118.408902],[34.124003,-118.408795],[34.124229,-118.408687],[34.124326,-118.408998],[34.12434,-118.409324],[34.12397,-118.409398],[34.123837,-118.409454],[34.123751,-118.409562]]},{"i":467517533,"n":"","k":"track (unpaved)","c":[[34.124147,-118.438122],[34.124055,-118.438165],[34.124043,-118.438246],[34.12407,-118.438958],[34.124188,-118.439151],[34.124156,-118.439236],[34.12407,-118.439224],[34.123837,-118.439025],[34.123678,-118.439041],[34.123503,-118.438978],[34.123435,-118.439096],[34.123499,-118.4392],[34.123828,-118.439407],[34.124051,-118.439822],[34.124114,-118.440109],[34.124096,-118.440212],[34.123999,-118.440311],[34.123864,-118.440186],[34.123714,-118.44018],[34.123629,-118.440227],[34.123553,-118.440543],[34.123561,-118.44071],[34.123599,-118.440811],[34.123716,-118.440751],[34.123836,-118.440823],[34.123898,-118.44098],[34.124171,-118.44127],[34.124347,-118.442025],[34.124684,-118.441958],[34.124746,-118.441829],[34.124867,-118.441793],[34.125012,-118.441654],[34.125144,-118.441408],[34.125125,-118.441305],[34.125164,-118.441241],[34.125262,-118.441268],[34.125452,-118.441727],[34.125552,-118.44172],[34.125675,-118.441586],[34.125728,-118.441331],[34.125804,-118.441237],[34.125981,-118.441474],[34.126085,-118.441474],[34.126118,-118.441345],[34.12629,-118.441258],[34.126329,-118.441143],[34.126302,-118.441038],[34.12614,-118.440948],[34.12607,-118.440842],[34.125982,-118.440388]]},{"i":509125268,"n":"","k":"track (unpaved)","c":[[34.140283,-118.43401],[34.139957,-118.434012],[34.13956,-118.434273],[34.139373,-118.434906],[34.139246,-118.435103],[34.138976,-118.434984],[34.138625,-118.434919],[34.138505,-118.434959],[34.138039,-118.435304],[34.137664,-118.435292],[34.13751,-118.435376],[34.13744,-118.435505],[34.13745,-118.435729],[34.137642,-118.436057],[34.136743,-118.436057],[34.136607,-118.436169]]},{"i":845002539,"n":"","k":"track (unpaved)","c":[[34.122011,-118.409111],[34.122334,-118.408494],[34.122459,-118.40841]]},{"i":888351778,"n":"Hastain Fire Road","k":"fire road","c":[[34.112478,-118.408075],[34.112577,-118.408092],[34.112846,-118.407922],[34.113494,-118.407998]]},{"i":951859360,"n":"","k":"track (unpaved)","c":[[34.117835,-118.370747],[34.117524,-118.370765],[34.117455,-118.37081],[34.11741,-118.370854],[34.117385,-118.371112],[34.117263,-118.371223],[34.11705,-118.371201],[34.116913,-118.371099],[34.116806,-118.371124],[34.116701,-118.371307],[34.116723,-118.37177]]},{"i":1017988850,"n":"","k":"track (unpaved)","c":[[34.133886,-118.396134],[34.133689,-118.396032],[34.133595,-118.395862],[34.133326,-118.395189],[34.133216,-118.394714]]},{"i":1047470666,"n":"","k":"track (unpaved)","c":[[34.119918,-118.452183],[34.11996,-118.452142],[34.120223,-118.452129],[34.120725,-118.452215],[34.120961,-118.452164],[34.121213,-118.452086],[34.121457,-118.451837],[34.121254,-118.451798],[34.120952,-118.451903],[34.120515,-118.451798],[34.119843,-118.4513],[34.119794,-118.45111],[34.119829,-118.450991],[34.119991,-118.450867],[34.120047,-118.450758],[34.120086,-118.450215],[34.120351,-118.449309]]},{"i":1047470667,"n":"","k":"track (unpaved)","c":[[34.120739,-118.44939],[34.119902,-118.449252],[34.119423,-118.449351],[34.118893,-118.449587],[34.118691,-118.44961],[34.118435,-118.449514],[34.117666,-118.44908],[34.117501,-118.449055],[34.117286,-118.449079],[34.116999,-118.449191],[34.116601,-118.449575],[34.116275,-118.449404]]},{"i":1054265924,"n":"","k":"track (unpaved)","c":[[34.125991,-118.439748],[34.126053,-118.439781],[34.126226,-118.439732],[34.126383,-118.439836],[34.126537,-118.440097],[34.126543,-118.440303],[34.126719,-118.440577]]},{"i":1062495936,"n":"Franklin Canyon Drive Admin Access","k":"track (unpaved)","c":[[34.119731,-118.413082],[34.11951,-118.412745],[34.119315,-118.412554],[34.118699,-118.412353],[34.11857,-118.412417],[34.118294,-118.412776],[34.117908,-118.41288],[34.11754,-118.413141]]},{"i":1134993186,"n":"Barker Fire Road","k":"fire road","c":[[34.128616,-118.397084],[34.128168,-118.397016],[34.128025,-118.397063],[34.127793,-118.397363]]},{"i":1164229509,"n":"Royalton Drive","k":"track (unpaved)","c":[[34.111059,-118.406292],[34.111176,-118.406322],[34.111341,-118.406287]]},{"i":1164712748,"n":"","k":"track (unpaved)","c":[[34.124896,-118.453682],[34.124888,-118.45414],[34.124905,-118.454189],[34.125007,-118.454201],[34.125566,-118.453842],[34.126025,-118.453462],[34.126087,-118.453348],[34.126156,-118.45332],[34.126427,-118.453425],[34.126538,-118.453349],[34.126627,-118.453196],[34.126745,-118.453168],[34.126882,-118.453267],[34.126989,-118.453443],[34.126998,-118.453779],[34.127154,-118.454018],[34.127147,-118.45445]]},{"i":1166264354,"n":"","k":"track (unpaved)","c":[[34.111833,-118.449354],[34.111925,-118.449418],[34.112009,-118.44934],[34.111967,-118.448595],[34.112022,-118.448523],[34.11219,-118.448996],[34.112399,-118.449313],[34.112452,-118.449483]]},{"i":1167863939,"n":"","k":"track (unpaved)","c":[[34.117725,-118.447599],[34.117794,-118.447816],[34.118081,-118.448083],[34.11827,-118.448187]]},{"i":1171451825,"n":"","k":"track (unpaved)","c":[[34.104604,-118.448094],[34.104522,-118.448152],[34.104157,-118.447693],[34.104064,-118.447688],[34.103919,-118.447869]]},{"i":1171747708,"n":"","k":"track (unpaved)","c":[[34.104154,-118.44091],[34.104537,-118.440219],[34.10458,-118.439711],[34.104348,-118.439903]]},{"i":1205966314,"n":"","k":"track (unpaved)","c":[[34.104697,-118.432415],[34.104825,-118.432451],[34.105036,-118.432318],[34.10531,-118.431797],[34.105505,-118.43163],[34.1056,-118.431659],[34.105784,-118.431857],[34.106211,-118.431841],[34.106334,-118.431948],[34.106473,-118.432606],[34.106371,-118.432918],[34.106254,-118.433014],[34.106296,-118.433061],[34.106575,-118.432869],[34.106616,-118.43278],[34.106648,-118.43185]]},{"i":1205966315,"n":"","k":"track (unpaved)","c":[[34.106255,-118.433057],[34.105992,-118.433202],[34.105309,-118.434113],[34.105131,-118.434312],[34.104774,-118.434569],[34.104491,-118.435002],[34.104168,-118.435372]]},{"i":1289431294,"n":"","k":"track (unpaved)","c":[[34.116619,-118.437863],[34.116921,-118.438556],[34.116975,-118.438927],[34.117082,-118.439138],[34.117395,-118.439356],[34.117591,-118.439615]]},{"i":1289431295,"n":"","k":"track (unpaved)","c":[[34.117641,-118.439625],[34.117096,-118.439429],[34.116576,-118.439077],[34.116082,-118.439296]]},{"i":1289431297,"n":"","k":"track (unpaved)","c":[[34.117334,-118.440395],[34.117311,-118.440199],[34.117178,-118.440039],[34.116359,-118.439551]]},{"i":1300656485,"n":"","k":"track (unpaved)","c":[[34.124665,-118.439772],[34.1246,-118.439981],[34.124622,-118.440062],[34.124889,-118.440235],[34.124978,-118.440396],[34.124907,-118.440554],[34.124662,-118.440467],[34.124712,-118.440689],[34.124619,-118.441133],[34.124573,-118.441123],[34.124428,-118.440863],[34.124279,-118.440813],[34.124145,-118.440695],[34.124001,-118.440455],[34.123999,-118.440311]]},{"i":1324932714,"n":"","k":"track (unpaved)","c":[[34.122547,-118.406759],[34.122508,-118.406652],[34.122446,-118.40667],[34.122459,-118.40714]]},{"i":1324932715,"n":"","k":"track (unpaved)","c":[[34.122554,-118.407733],[34.1226,-118.408027],[34.12258,-118.408226]]},{"i":1340829921,"n":"","k":"track (unpaved)","c":[[34.123924,-118.45668],[34.123841,-118.456235],[34.123775,-118.456158],[34.123604,-118.45629],[34.123404,-118.45672],[34.123234,-118.456925],[34.123177,-118.456556],[34.122919,-118.456498],[34.122874,-118.456375]]},{"i":1356836589,"n":"Newcomb Drive","k":"track (unpaved)","c":[[34.138491,-118.424843],[34.138668,-118.425133]]},{"i":1387073634,"n":"","k":"track (unpaved)","c":[[34.107719,-118.409631],[34.107658,-118.409701],[34.107616,-118.409691],[34.107582,-118.409515],[34.107716,-118.409375],[34.10792,-118.408979],[34.10799,-118.408564],[34.107922,-118.408376],[34.107779,-118.408226],[34.10728,-118.408075],[34.106975,-118.407898],[34.106603,-118.407854],[34.105831,-118.408431],[34.105715,-118.408573]]},{"i":1410167465,"n":"Barker Fire Road","k":"fire road","c":[[34.127793,-118.397363],[34.127602,-118.397951]]},{"i":1413304581,"n":"","k":"track (unpaved)","c":[[34.107786,-118.408233],[34.107558,-118.407928],[34.10743,-118.407867],[34.107243,-118.407618],[34.106985,-118.407431],[34.107248,-118.40753],[34.107418,-118.407687],[34.107284,-118.407454],[34.106977,-118.407168],[34.107024,-118.407151],[34.107167,-118.407277],[34.107294,-118.407299],[34.107399,-118.40744],[34.107507,-118.4075],[34.107574,-118.407453],[34.107467,-118.407406],[34.107351,-118.407186],[34.107193,-118.407087],[34.107048,-118.406822],[34.107062,-118.406793],[34.107215,-118.406925],[34.107488,-118.407004]]},{"i":1424716367,"n":"Betty B. Dearing Trail","k":"track (unpaved)","c":[[34.133188,-118.391873],[34.13321,-118.392246],[34.133285,-118.392398],[34.13376,-118.392648],[34.13421,-118.393043],[34.134281,-118.393172],[34.134239,-118.393242],[34.133712,-118.393092],[34.133611,-118.393101],[34.133403,-118.39318],[34.133283,-118.393396],[34.133232,-118.393796],[34.133293,-118.393838],[34.133385,-118.393819],[34.133471,-118.393554],[34.133605,-118.393491],[34.1337,-118.39355],[34.13384,-118.393801],[34.133667,-118.394933],[34.133694,-118.395416]]},{"i":1448018991,"n":"","k":"track (unpaved)","c":[[34.134281,-118.393172],[34.134359,-118.393209],[34.134386,-118.3933],[34.134331,-118.393323],[34.134239,-118.393242]]},{"i":1484312706,"n":"","k":"track (unpaved)","c":[[34.088431,-118.440874],[34.088583,-118.440312],[34.088535,-118.440145],[34.088567,-118.44]]},{"i":1505295061,"n":"","k":"track (unpaved)","c":[[34.125982,-118.440388],[34.126056,-118.439958],[34.125991,-118.439748],[34.126036,-118.439548],[34.125887,-118.43957],[34.12573,-118.439771],[34.125675,-118.439701],[34.125675,-118.439445],[34.125569,-118.439455],[34.125504,-118.439571],[34.125439,-118.439482],[34.125621,-118.439088],[34.12581,-118.439016],[34.125882,-118.438888],[34.125835,-118.438732],[34.125578,-118.438706]]},{"i":13290126,"n":"Sullivan Ridge Fire Road","k":"fire road","c":[[34.061037,-118.505466],[34.061559,-118.505456],[34.062178,-118.505344],[34.062426,-118.505124],[34.062521,-118.5051],[34.062739,-118.505156],[34.063224,-118.504829],[34.06339,-118.50479],[34.063503,-118.504835],[34.063692,-118.505083],[34.063942,-118.505116],[34.064429,-118.505394],[34.064571,-118.505371],[34.064848,-118.505174],[34.065079,-118.505284],[34.065184,-118.505258],[34.065266,-118.505176],[34.065402,-118.504857],[34.065489,-118.504778],[34.065672,-118.504914],[34.065942,-118.505269],[34.066055,-118.505296],[34.066314,-118.505226],[34.06671,-118.505369],[34.066874,-118.505652],[34.066995,-118.506064],[34.067315,-118.506433],[34.067396,-118.506758],[34.06745,-118.506825],[34.067727,-118.506943],[34.068024,-118.507277],[34.068064,-118.507676],[34.068188,-118.507752],[34.068625,-118.507784],[34.06905,-118.508239],[34.069119,-118.508483],[34.069125,-118.50886],[34.069373,-118.509176],[34.06946,-118.509457],[34.069826,-118.509962],[34.069936,-118.510223],[34.070134,-118.510312],[34.070203,-118.510422],[34.070502,-118.510468],[34.070588,-118.510534],[34.070715,-118.510708],[34.071,-118.511317],[34.071131,-118.511442],[34.0712,-118.51145],[34.071393,-118.511287],[34.071663,-118.511296],[34.071772,-118.511391],[34.071827,-118.511529],[34.071863,-118.512178],[34.071923,-118.512232],[34.072178,-118.512277],[34.072243,-118.512435],[34.072299,-118.512911],[34.072224,-118.513315],[34.072397,-118.513864]]},{"i":13305323,"n":"West Mandeville Fire Road","k":"fire road","c":[[34.085591,-118.509183],[34.086071,-118.510185]]},{"i":13346917,"n":"Mount Saint Mary's Fire Road","k":"fire road","c":[[34.100759,-118.488718],[34.0986,-118.486947],[34.097565,-118.486385],[34.097263,-118.486322],[34.096694,-118.486474],[34.096021,-118.486473],[34.095903,-118.486355],[34.095694,-118.485967],[34.095603,-118.485528],[34.095515,-118.485378],[34.09516,-118.485311],[34.094983,-118.485166],[34.09481,-118.485107],[34.094271,-118.48507],[34.094111,-118.484725],[34.093951,-118.48463]]},{"i":24563166,"n":"East Sepulveda Fire Road","k":"fire road","c":[[34.088912,-118.472575],[34.089184,-118.472589],[34.089509,-118.472762],[34.08978,-118.472567],[34.0905,-118.472489],[34.090831,-118.472605],[34.091121,-118.472918],[34.09124,-118.472953],[34.091582,-118.472734],[34.091909,-118.472396],[34.09221,-118.472183],[34.09249,-118.472076],[34.093118,-118.472167],[34.093471,-118.472313],[34.093661,-118.472505],[34.093789,-118.472853],[34.094091,-118.472987],[34.094256,-118.47293],[34.094455,-118.472625],[34.094639,-118.472451],[34.09512,-118.472269],[34.095607,-118.471975],[34.096251,-118.472124],[34.096487,-118.472095],[34.096813,-118.471966],[34.096931,-118.471996],[34.0975,-118.472416],[34.098398,-118.473347],[34.098517,-118.473555],[34.098577,-118.473935],[34.098635,-118.474012],[34.098726,-118.474037],[34.099265,-118.473877],[34.099818,-118.473593],[34.1002,-118.47375],[34.100393,-118.474021],[34.100784,-118.47427],[34.100951,-118.474308],[34.101318,-118.474271],[34.101973,-118.473966],[34.102822,-118.473434],[34.103587,-118.473126],[34.104096,-118.473404],[34.104559,-118.473549],[34.104856,-118.473736],[34.105628,-118.473895]]},{"i":25004736,"n":"Westridge Fire Road","k":"fire road","c":[[34.086071,-118.510185],[34.08629,-118.510532],[34.086375,-118.510914],[34.086661,-118.511444],[34.086333,-118.512135],[34.086362,-118.512233],[34.086827,-118.512791],[34.08695,-118.512815],[34.087261,-118.51252],[34.087397,-118.51247],[34.087593,-118.512566],[34.087705,-118.512822],[34.087817,-118.512904],[34.088563,-118.512715],[34.089269,-118.512822],[34.089609,-118.512735],[34.089965,-118.513188],[34.090345,-118.513441],[34.090362,-118.513801],[34.090602,-118.514047],[34.090886,-118.514045],[34.091362,-118.513894],[34.092057,-118.514082],[34.092167,-118.514182],[34.092414,-118.514876],[34.092475,-118.514992],[34.092545,-118.515018],[34.093272,-118.514707],[34.094096,-118.514243],[34.094914,-118.513686],[34.095343,-118.513617],[34.095516,-118.513687],[34.095893,-118.514021],[34.09619,-118.514463],[34.096378,-118.514523],[34.096788,-118.514511],[34.097173,-118.514695],[34.09759,-118.514737],[34.097987,-118.514636],[34.098456,-118.514417],[34.098671,-118.514431],[34.099034,-118.514696],[34.099429,-118.515322],[34.099579,-118.515327],[34.099893,-118.515036],[34.100321,-118.514474],[34.100659,-118.514208],[34.10122,-118.513959],[34.101881,-118.513325],[34.102246,-118.513097],[34.102508,-118.512694],[34.102878,-118.512426],[34.103103,-118.512191],[34.103228,-118.51214],[34.104003,-118.512161],[34.104285,-118.512438],[34.104646,-118.5125],[34.105048,-118.512651],[34.105794,-118.513577],[34.105948,-118.513719],[34.106432,-118.513992],[34.106561,-118.514405],[34.106641,-118.514454],[34.10678,-118.514418],[34.107137,-118.5141],[34.107392,-118.514082],[34.109384,-118.514706],[34.111144,-118.51494],[34.111486,-118.515153],[34.111601,-118.515121],[34.112044,-118.51479],[34.11234,-118.514487],[34.112589,-118.514509],[34.112873,-118.514673],[34.1133,-118.514709],[34.113558,-118.514415],[34.113712,-118.51432],[34.11398,-118.514359],[34.114329,-118.514226],[34.114561,-118.514337],[34.114627,-118.514326],[34.114733,-118.513949],[34.114897,-118.513854],[34.114947,-118.513766],[34.114908,-118.513428],[34.11495,-118.513256],[34.115441,-118.512949],[34.11559,-118.512587],[34.115715,-118.512502],[34.116092,-118.512403],[34.116521,-118.512213],[34.11727,-118.512071],[34.117441,-118.512138],[34.117694,-118.512399],[34.118002,-118.512285],[34.118394,-118.512473],[34.118502,-118.512419],[34.118658,-118.512231],[34.11892,-118.51214],[34.119297,-118.512221],[34.120188,-118.512128],[34.120489,-118.512262],[34.121017,-118.512383],[34.121582,-118.512345],[34.12186,-118.512384],[34.122261,-118.512039],[34.122474,-118.511918],[34.122951,-118.511949],[34.12314,-118.511799],[34.123298,-118.511741],[34.123638,-118.511842],[34.123865,-118.511646],[34.124147,-118.511607],[34.124297,-118.511656],[34.124918,-118.512073],[34.125283,-118.51214],[34.125589,-118.512474],[34.125919,-118.512468],[34.126195,-118.512779],[34.126475,-118.512821],[34.126534,-118.512882],[34.126593,-118.51317],[34.1267,-118.513327],[34.127121,-118.513674],[34.127434,-118.51377]]},{"i":49926308,"n":"North Kenter Fire Road","k":"fire road","c":[[34.082253,-118.49547],[34.082755,-118.495569],[34.083707,-118.495376],[34.08402,-118.495422],[34.084347,-118.495693],[34.08472,-118.495588],[34.085131,-118.495616],[34.085472,-118.495855],[34.085551,-118.495825],[34.085662,-118.495655]]},{"i":345395024,"n":"Mount Saint Mary's Fire Road","k":"fire road","c":[[34.093951,-118.48463],[34.093822,-118.484543],[34.093733,-118.484389],[34.093475,-118.483573],[34.093377,-118.483563],[34.093053,-118.483711],[34.092796,-118.483723],[34.092427,-118.483423],[34.092296,-118.483498],[34.091914,-118.484023],[34.091533,-118.484362],[34.090902,-118.484498],[34.090527,-118.484723],[34.090319,-118.484786],[34.089801,-118.484701],[34.089541,-118.484501],[34.088923,-118.484328],[34.088642,-118.484037],[34.088357,-118.48391],[34.088044,-118.48366],[34.087597,-118.483616],[34.087085,-118.483723],[34.086923,-118.483692]]},{"i":346052378,"n":"North Kenter fire road","k":"fire road","c":[[34.095486,-118.498177],[34.096631,-118.498258],[34.096763,-118.498215],[34.097095,-118.497926],[34.097428,-118.497786],[34.097496,-118.497723],[34.097481,-118.497611],[34.097149,-118.497077],[34.097147,-118.496879],[34.097268,-118.496848],[34.098144,-118.497071],[34.098376,-118.497011],[34.098438,-118.496921],[34.098501,-118.496605],[34.0985,-118.496196],[34.098602,-118.496058],[34.098677,-118.496063],[34.098937,-118.496243],[34.099105,-118.4966],[34.099427,-118.496617]]},{"i":361597831,"n":"West Mandeville Fire Road","k":"fire road","c":[[34.127434,-118.51377],[34.127692,-118.513703],[34.128084,-118.513131],[34.128226,-118.513206],[34.128665,-118.513299],[34.128877,-118.513414],[34.129062,-118.513431]]},{"i":361607073,"n":"Sullivan Fire Road","k":"fire road","c":[[34.08289,-118.518117],[34.08294,-118.518065],[34.083096,-118.51805],[34.083447,-118.518104],[34.084511,-118.518773],[34.084878,-118.518838],[34.085843,-118.519147],[34.086756,-118.519568],[34.087049,-118.51986],[34.08752,-118.520107],[34.087943,-118.520454],[34.088574,-118.520808],[34.089133,-118.521304],[34.089342,-118.521379],[34.0897,-118.521317],[34.090168,-118.521563],[34.090601,-118.521626],[34.090894,-118.521806],[34.091239,-118.5222],[34.091842,-118.522599],[34.092418,-118.522669],[34.092729,-118.522764],[34.093042,-118.522657],[34.093449,-118.522229],[34.093746,-118.522068],[34.093962,-118.522076],[34.094262,-118.522234],[34.09458,-118.522323],[34.09519,-118.522261],[34.095652,-118.522511],[34.096286,-118.522688],[34.096905,-118.522716],[34.097409,-118.522982],[34.09758,-118.522991],[34.097758,-118.522888],[34.098276,-118.522974],[34.098433,-118.523042],[34.098689,-118.5233],[34.09908,-118.523471],[34.099407,-118.523488],[34.09994,-118.523386],[34.100288,-118.523514],[34.100672,-118.523729],[34.101126,-118.523683],[34.101446,-118.523703],[34.101958,-118.523943],[34.102818,-118.524004],[34.103308,-118.524209],[34.103557,-118.524227],[34.10404,-118.524604],[34.104318,-118.524716],[34.105123,-118.525309],[34.105599,-118.525326],[34.105924,-118.525686],[34.106478,-118.525875],[34.106656,-118.525806],[34.106983,-118.525523],[34.107246,-118.525411],[34.107821,-118.525257],[34.108027,-118.525317],[34.108361,-118.525222],[34.10871,-118.525548],[34.108923,-118.525609],[34.109321,-118.525883],[34.109577,-118.525857],[34.109797,-118.525754],[34.11001,-118.525823],[34.110287,-118.52572],[34.110529,-118.525703],[34.110841,-118.52596],[34.111069,-118.526021],[34.111602,-118.525909],[34.112135,-118.526175],[34.112298,-118.526209],[34.112841,-118.525948],[34.11308,-118.525935],[34.113563,-118.526115],[34.114096,-118.525952],[34.114326,-118.525989],[34.114821,-118.525926],[34.11523,-118.526208],[34.115463,-118.52619],[34.115702,-118.526321],[34.116107,-118.526278],[34.116313,-118.526304],[34.116725,-118.526493],[34.117131,-118.526441],[34.117842,-118.526865],[34.117948,-118.526887],[34.118132,-118.526844],[34.118355,-118.52645],[34.118559,-118.526372],[34.118698,-118.526469],[34.118723,-118.52704],[34.118812,-118.527263],[34.118965,-118.52745],[34.119103,-118.52752],[34.119617,-118.527471],[34.120058,-118.52748],[34.120202,-118.52754],[34.12057,-118.527754],[34.120861,-118.528046],[34.121361,-118.528425],[34.121557,-118.528647],[34.121739,-118.528733],[34.121861,-118.528737],[34.12217,-118.5286],[34.12239,-118.528621],[34.122693,-118.528257],[34.123044,-118.52804],[34.123216,-118.528042],[34.123298,-118.528141],[34.123431,-118.528189],[34.123689,-118.528048],[34.124567,-118.527944],[34.124893,-118.527955],[34.124985,-118.527897],[34.12522,-118.527531],[34.125648,-118.527348],[34.127123,-118.52703],[34.127285,-118.52708],[34.128009,-118.527068],[34.128342,-118.526891],[34.128625,-118.526471]]},{"i":452116720,"n":"Sullivan Fire Road","k":"fire road","c":[[34.072397,-118.513864],[34.072483,-118.513906],[34.072588,-118.513874],[34.072721,-118.513638],[34.073078,-118.513367],[34.073172,-118.513366],[34.073254,-118.513518],[34.073235,-118.513844],[34.073277,-118.513965],[34.073546,-118.514198],[34.07361,-118.514205],[34.073932,-118.513871],[34.074149,-118.513719],[34.074308,-118.51325],[34.074622,-118.513244],[34.074786,-118.512968],[34.075112,-118.513003],[34.075424,-118.512899],[34.075935,-118.513036],[34.076226,-118.513012]]},{"i":506042607,"n":"E.C. Fire Road","k":"fire road","c":[[34.140096,-118.354715],[34.13967,-118.355321],[34.139221,-118.355584],[34.139073,-118.355559],[34.138938,-118.355474]]},{"i":632613339,"n":"Sullivan Fire Road","k":"fire road","c":[[34.076226,-118.513012],[34.076431,-118.513008],[34.076812,-118.513327],[34.077174,-118.513369],[34.077278,-118.513426],[34.077569,-118.513671],[34.077894,-118.514124],[34.078396,-118.514645],[34.078569,-118.514715],[34.078793,-118.514641],[34.078947,-118.514682],[34.079191,-118.515002],[34.079644,-118.515391],[34.079772,-118.51539],[34.079938,-118.515272],[34.080321,-118.514839],[34.080822,-118.515013],[34.080983,-118.515309],[34.081112,-118.516366],[34.081366,-118.516955],[34.081791,-118.517402],[34.082312,-118.517505],[34.082605,-118.518035],[34.082729,-118.518146],[34.08289,-118.518117]]},{"i":880785565,"n":"North Kenter fire road","k":"fire road","c":[[34.086609,-118.495879],[34.086934,-118.496185],[34.087047,-118.49618],[34.087251,-118.49604],[34.087609,-118.49611],[34.087742,-118.496196],[34.088158,-118.496689],[34.088273,-118.496751],[34.08892,-118.496856],[34.089281,-118.496861],[34.08981,-118.497261],[34.089957,-118.497271],[34.090215,-118.497178],[34.090434,-118.496984],[34.090601,-118.496968],[34.09121,-118.497328],[34.091481,-118.497432],[34.091712,-118.497491],[34.092214,-118.497413],[34.092719,-118.497588],[34.093174,-118.497681]]},{"i":969300840,"n":"East Sepulveda Fire Road","k":"fire road","c":[[34.105628,-118.473895],[34.10577,-118.473992],[34.105837,-118.474173],[34.105829,-118.474373],[34.105685,-118.474685],[34.105688,-118.474863],[34.106202,-118.475371],[34.106295,-118.475359],[34.106738,-118.474952],[34.106941,-118.474853],[34.107044,-118.474711]]},{"i":1136008127,"n":"North Kenter Fire Road","k":"fire road","c":[[34.085857,-118.495571],[34.08601,-118.495391],[34.086376,-118.495142],[34.086494,-118.49512],[34.086646,-118.495404],[34.086543,-118.495745],[34.086609,-118.495879]]},{"i":1160782185,"n":"West Mandeville Fire Road","k":"fire road","c":[[34.085518,-118.508916],[34.085591,-118.509183]]},{"i":1489285234,"n":"North Kenter fire road","k":"fire road","c":[[34.093174,-118.497681],[34.093193,-118.497614],[34.093714,-118.497636],[34.094068,-118.497904],[34.094292,-118.497678],[34.094569,-118.49752],[34.095185,-118.497793],[34.095538,-118.498068],[34.095486,-118.498177]]}];
+  var OVERLAYS = {"city":[[34.09108,-118.39588],[34.09061,-118.39578],[34.09062,-118.39453],[34.08966,-118.39362],[34.08852,-118.38979],[34.0765,-118.38973],[34.07652,-118.39075],[34.07211,-118.39074],[34.07215,-118.3838],[34.06971,-118.38376],[34.06973,-118.37744],[34.06935,-118.37741],[34.06936,-118.37635],[34.07032,-118.3759],[34.06542,-118.37305],[34.06357,-118.37154],[34.06363,-118.37207],[34.06221,-118.37226],[34.06,-118.37601],[34.05951,-118.37626],[34.05942,-118.37732],[34.06298,-118.37736],[34.06294,-118.38356],[34.05712,-118.3837],[34.05716,-118.3997],[34.05686,-118.40006],[34.05722,-118.40109],[34.05684,-118.40328],[34.05713,-118.40595],[34.05486,-118.40596],[34.0549,-118.40549],[34.05443,-118.40532],[34.05418,-118.40617],[34.05293,-118.40559],[34.05267,-118.40629],[34.06045,-118.41158],[34.06012,-118.41224],[34.06287,-118.4142],[34.0632,-118.41359],[34.06845,-118.41722],[34.06889,-118.41636],[34.07203,-118.41835],[34.07267,-118.41967],[34.07545,-118.42096],[34.07511,-118.42187],[34.07574,-118.42331],[34.07705,-118.42279],[34.07769,-118.42333],[34.07977,-118.42383],[34.07993,-118.42281],[34.08309,-118.4228],[34.08305,-118.42699],[34.09065,-118.42707],[34.09065,-118.42419],[34.09033,-118.42405],[34.09058,-118.42272],[34.09434,-118.42277],[34.09429,-118.414],[34.09227,-118.41192],[34.09352,-118.4115],[34.09488,-118.40947],[34.09556,-118.40922],[34.09617,-118.40953],[34.09717,-118.40867],[34.09758,-118.4091],[34.09848,-118.40882],[34.10018,-118.40909],[34.10153,-118.40829],[34.10148,-118.40544],[34.09632,-118.40535],[34.09369,-118.40245],[34.09423,-118.40171],[34.09386,-118.40143],[34.09402,-118.40092],[34.09513,-118.40094],[34.09599,-118.39998],[34.09632,-118.40095],[34.10858,-118.40106],[34.10863,-118.39869],[34.11096,-118.40011],[34.11151,-118.39924],[34.11164,-118.39723],[34.11164,-118.3964],[34.11123,-118.39604],[34.11244,-118.39589],[34.11245,-118.39117],[34.10923,-118.39061],[34.10751,-118.39123],[34.10654,-118.39226],[34.09982,-118.39211],[34.0962,-118.39544],[34.09621,-118.39654],[34.09509,-118.39654],[34.09504,-118.39595],[34.09108,-118.39588]],"trousdale":[[34.10148,-118.40544],[34.09718,-118.40518],[34.09632,-118.40535],[34.09369,-118.40245],[34.09423,-118.40171],[34.09386,-118.40143],[34.09402,-118.40092],[34.09513,-118.40094],[34.09599,-118.39998],[34.09632,-118.40095],[34.10858,-118.40106],[34.10863,-118.39869],[34.11096,-118.40011],[34.11151,-118.39924],[34.11164,-118.39723],[34.11164,-118.3964],[34.11123,-118.39604],[34.11244,-118.39589],[34.11245,-118.39117],[34.10923,-118.39061],[34.10751,-118.39123],[34.10671,-118.39179],[34.10654,-118.39226],[34.09982,-118.39211],[34.097,-118.39493],[34.0962,-118.39544],[34.09621,-118.39654],[34.09509,-118.39654],[34.09504,-118.39595],[34.09061,-118.39578],[34.09123,-118.39985],[34.09098,-118.40046],[34.08959,-118.4018],[34.08952,-118.40261],[34.08995,-118.40384],[34.08932,-118.4057]],"coldwater":[[34.09313,-118.41167],[34.09352,-118.4115],[34.09488,-118.40947],[34.09556,-118.40922],[34.09617,-118.40953],[34.09659,-118.40909],[34.09714,-118.40892],[34.09717,-118.40867],[34.09758,-118.4091],[34.09848,-118.40882],[34.10018,-118.40909],[34.10048,-118.40864],[34.10068,-118.40876],[34.10131,-118.4082],[34.10153,-118.40829],[34.10148,-118.40544],[34.09718,-118.40518],[34.09632,-118.40535],[34.09556,-118.40451],[34.09435,-118.40695],[34.0944,-118.4077],[34.09376,-118.40843],[34.09439,-118.40941],[34.09335,-118.40988],[34.09307,-118.41023]],"franklin":[[[34.10151,-118.40871],[34.10076,-118.40869],[34.10018,-118.40916],[34.09855,-118.40889],[34.09769,-118.40915],[34.09715,-118.40866],[34.09613,-118.40952],[34.09554,-118.40921],[34.09486,-118.40945],[34.0935,-118.41147],[34.09233,-118.41179],[34.09446,-118.41392],[34.09931,-118.41399],[34.10054,-118.41502],[34.09916,-118.4136],[34.09989,-118.41368],[34.10078,-118.41451],[34.1017,-118.41473],[34.10079,-118.4146],[34.09923,-118.4136],[34.10111,-118.41528],[34.10157,-118.4162],[34.10561,-118.41607],[34.10627,-118.41659],[34.10597,-118.41598],[34.10521,-118.41586],[34.1065,-118.41624],[34.10651,-118.41538],[34.10521,-118.41478],[34.10761,-118.41543],[34.10676,-118.41478],[34.10788,-118.41545],[34.11184,-118.41506],[34.11273,-118.41531],[34.11509,-118.41391],[34.1159,-118.41381],[34.11502,-118.41531],[34.11292,-118.41621],[34.11094,-118.41602],[34.11057,-118.41692],[34.10924,-118.41669],[34.10785,-118.41755],[34.10905,-118.41756],[34.11005,-118.41837],[34.11138,-118.41788],[34.11151,-118.41749],[34.11251,-118.41748],[34.11251,-118.41687],[34.11755,-118.4158],[34.1178,-118.4151],[34.1189,-118.41511],[34.11908,-118.41463],[34.12128,-118.41491],[34.12213,-118.41409],[34.12751,-118.41412],[34.12824,-118.41373],[34.12811,-118.41319],[34.12902,-118.41114],[34.12896,-118.41019],[34.12763,-118.41016],[34.12764,-118.40976],[34.12799,-118.40976],[34.12786,-118.40691],[34.12722,-118.40617],[34.12737,-118.40537],[34.11958,-118.4054],[34.11958,-118.40489],[34.12029,-118.40487],[34.12059,-118.40406],[34.12008,-118.40352],[34.11844,-118.40566],[34.11795,-118.40694],[34.11675,-118.40718],[34.11649,-118.40862],[34.11577,-118.408],[34.11467,-118.4079],[34.11435,-118.40984],[34.1125,-118.41108],[34.11252,-118.41251],[34.11199,-118.41397],[34.11073,-118.41398],[34.1107,-118.4118],[34.10889,-118.41182],[34.10886,-118.40975],[34.10153,-118.40972],[34.10151,-118.40871]],[[34.11504,-118.41511],[34.11576,-118.41387],[34.1128,-118.41542],[34.11079,-118.41544],[34.11031,-118.416],[34.11062,-118.41641],[34.11093,-118.41596],[34.11291,-118.41607],[34.11504,-118.41511]],[[34.11061,-118.41644],[34.11047,-118.41686],[34.10994,-118.41655],[34.10855,-118.41699],[34.1085,-118.41657],[34.10912,-118.41611],[34.11029,-118.41602],[34.11061,-118.41644]],[[34.10853,-118.41699],[34.10735,-118.41696],[34.1064,-118.41637],[34.10848,-118.41658],[34.10853,-118.41699]],[[34.10856,-118.41719],[34.10615,-118.4168],[34.10605,-118.41732],[34.10774,-118.41751],[34.10856,-118.41719]],[[34.10636,-118.41648],[34.10727,-118.4171],[34.1062,-118.41677],[34.10636,-118.41648]],[[34.11057,-118.41556],[34.10869,-118.41563],[34.1087,-118.4163],[34.11057,-118.41556]],[[34.10867,-118.41562],[34.10654,-118.41539],[34.10652,-118.41624],[34.10847,-118.41651],[34.10867,-118.41562]],[[34.10572,-118.41745],[34.1071,-118.41756],[34.10572,-118.41745]]],"reservoirs":[{"name":"Upper Franklin Canyon Reservoir","pts":[[34.12074,-118.41015],[34.12019,-118.41093],[34.11962,-118.41094],[34.11929,-118.41055],[34.12018,-118.40956],[34.12114,-118.40959],[34.12074,-118.41015]]},{"name":"Franklin Canyon Reservoir","pts":[[34.10343,-118.41351],[34.10254,-118.41371],[34.10176,-118.41313],[34.10056,-118.41299],[34.10049,-118.41191],[34.10109,-118.41153],[34.10244,-118.41197],[34.10342,-118.41311],[34.10343,-118.41351]]}],"evac":[{"name":"Carla Ridge","pts":[[34.09788,-118.40101],[34.09775,-118.4002],[34.09782,-118.39991],[34.09799,-118.39982],[34.09821,-118.39987],[34.09855,-118.40025],[34.09909,-118.40038],[34.10102,-118.40012],[34.10224,-118.40032],[34.1032,-118.40026],[34.10391,-118.40039],[34.10454,-118.39971],[34.10484,-118.39964],[34.1056,-118.39977],[34.10638,-118.39924],[34.10707,-118.3991],[34.1074,-118.3985],[34.10759,-118.39699],[34.10858,-118.39599],[34.10884,-118.39556],[34.10914,-118.39302],[34.10966,-118.39261],[34.11063,-118.39272],[34.11144,-118.39179],[34.11192,-118.39164]]},{"name":"Loma Vista Drive","pts":[[34.09118,-118.40006],[34.09184,-118.40003],[34.09321,-118.3991],[34.09481,-118.39884],[34.09598,-118.39887],[34.0972,-118.39865],[34.09878,-118.3988],[34.10044,-118.39839],[34.10155,-118.39838],[34.10246,-118.39794],[34.10352,-118.39791],[34.10436,-118.39707],[34.10519,-118.39543],[34.1067,-118.39433],[34.10746,-118.39244],[34.10791,-118.39212],[34.10815,-118.39209],[34.10864,-118.3921],[34.10932,-118.39246],[34.11039,-118.39483],[34.11099,-118.39583],[34.11156,-118.39634],[34.11146,-118.39922]]},{"name":"Loma Vista Drive","pts":[[34.0878,-118.40195],[34.08861,-118.40105],[34.08994,-118.40004],[34.09039,-118.39993],[34.09118,-118.40006]]}],"coldwater_center":[[34.09415,-118.40703],[34.09745,-118.40618],[34.10161,-118.4062],[34.1038,-118.40547],[34.10885,-118.40549],[34.11062,-118.4046],[34.11427,-118.40394],[34.11649,-118.40378],[34.118,-118.40406],[34.12031,-118.40206],[34.12097,-118.4004],[34.12136,-118.40019],[34.12349,-118.40123],[34.1244,-118.40261],[34.12628,-118.40338]],"ignition":[{"name":"Sim 2: Mulholland Dr and Hazen Dr","pt":[34.11918,-118.39601]},{"name":"Sim 3: Hillcrest Rd and Barrie Dr","pt":[34.10146,-118.39268]},{"name":"Sim 1: Lake Dr and Franklin Canyon Dr","pt":[34.11592,-118.41394]}],"areas":{"trousdale":[34.09994,-118.39854],"coldwater":[34.09673,-118.40848],"franklin":[34.11059,-118.41361],"benedict":[34.09797,-118.43075],"beverlyglen":[34.10511,-118.44586],"station2":[34.09127,-118.41113]},"stations":[{"n":"Fire Station 1 (HQ)","addr":"445 N. Rexford Drive","pt":[34.07245,-118.3998],"agency":"BHFD"},{"n":"Fire Station 2","addr":"1100 Coldwater Canyon Drive","pt":[34.09127,-118.41113],"agency":"BHFD"},{"n":"Fire Station 3","addr":"180 S. Doheny Drive","pt":[34.06543,-118.38957],"agency":"BHFD"},{"n":"LAFD Station 108","addr":"12520 Mulholland Drive","pt":[34.1270293,-118.4062815],"agency":"LAFD"},{"n":"LAFD Station 97","addr":"8021 Mulholland Drive","pt":[34.1261585,-118.3743919],"agency":"LAFD"},{"n":"LAFD Station 109","addr":"16500 Mulholland Drive","pt":[34.1308056,-118.4920744],"agency":"LAFD"}]};
   var NONET = (function () { try { return location.hash === '#nonet'; } catch (e) { return false; } })();   // test switch: pretend the internet is gone
   var RETRY_MS = 5000;                            // one automatic retry after 5 s, then the gray note
   var STALE_MS = 30 * 60 * 1000;                  // a live section older than 30 minutes turns amber
+  // Phase 4: three base maps. Satellite carries Esri's street-name and place-name reference layers on top, because crews read
+  // vegetation and structures from imagery but still navigate by street name. OpenTopoMap was dropped: it duplicated USGS topo
+  // and its volunteer servers are the least reliable under load. USGS stops at zoom 16, so it is stretched past that.
   var TILES = {
-    terrain:   { name: 'Terrain + fire roads (OpenTopoMap)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', opts: { maxZoom: 17, subdomains: 'abc', attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' } },
-    usgs:      { name: 'USGS Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 16, attribution: 'USGS The National Map: National Boundaries Dataset, 3DEP Elevation Program, Geographic Names Information System, National Hydrography Dataset, National Land Cover Database, National Structures Dataset, and National Transportation Dataset; USGS Global Ecosystems; U.S. Census Bureau TIGER/Line data; USFS Road Data; Natural Earth Data; U.S. Department of State Humanitarian Information Unit; and NOAA National Centers for Environmental Information, U.S. Coastal Relief Model.' } },
-    satellite: { name: 'Satellite (Esri World Imagery)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
+    satellite: { name: 'Satellite + street names (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19, maxNativeZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' },
+      labels: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'] },
+    usgs:      { name: 'Topo — slope and drainages (USGS)', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19, maxNativeZoom: 16, attribution: 'USGS The National Map: National Boundaries Dataset, 3DEP Elevation Program, Geographic Names Information System, National Hydrography Dataset, National Land Cover Database, National Structures Dataset, and National Transportation Dataset; USGS Global Ecosystems; U.S. Census Bureau TIGER/Line data; USFS Road Data; Natural Earth Data; U.S. Department of State Humanitarian Information Unit; and NOAA National Centers for Environmental Information, U.S. Coastal Relief Model.' } },
     streets:   { name: 'Streets (OpenStreetMap)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } }
   };
+  var BASE_ORDER = ['satellite', 'usgs', 'streets'];
   var AREAS = [
     { key: 'trousdale',   name: 'Trousdale Estates',                    watch: TROUSDALE,             center: [34.0999, -118.3985], zoom: 15 },
     { key: 'coldwater',   name: 'Coldwater Canyon / Loma Linda',        watch: [34.0967, -118.4085],  center: [34.0967, -118.4085], zoom: 15 },
@@ -1066,7 +1135,6 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     { key: 'nichols',     name: 'Nichols Canyon (neighboring — LAFD jurisdiction)', watch: [34.1154, -118.3610], center: [34.1154, -118.3610], zoom: 14 }
   ];
   var PLACES = { mulholland: { name: 'Mulholland Dr and Hazen Dr (SOC Sim 2 ignition)', watch: [34.11918, -118.39601] } };
-  var OVERLAYS = {"city":[[34.09108,-118.39588],[34.09061,-118.39578],[34.09062,-118.39453],[34.08966,-118.39362],[34.08852,-118.38979],[34.0765,-118.38973],[34.07652,-118.39075],[34.07211,-118.39074],[34.07215,-118.3838],[34.06971,-118.38376],[34.06973,-118.37744],[34.06935,-118.37741],[34.06936,-118.37635],[34.07032,-118.3759],[34.06542,-118.37305],[34.06357,-118.37154],[34.06363,-118.37207],[34.06221,-118.37226],[34.06,-118.37601],[34.05951,-118.37626],[34.05942,-118.37732],[34.06298,-118.37736],[34.06294,-118.38356],[34.05712,-118.3837],[34.05716,-118.3997],[34.05686,-118.40006],[34.05722,-118.40109],[34.05684,-118.40328],[34.05713,-118.40595],[34.05486,-118.40596],[34.0549,-118.40549],[34.05443,-118.40532],[34.05418,-118.40617],[34.05293,-118.40559],[34.05267,-118.40629],[34.06045,-118.41158],[34.06012,-118.41224],[34.06287,-118.4142],[34.0632,-118.41359],[34.06845,-118.41722],[34.06889,-118.41636],[34.07203,-118.41835],[34.07267,-118.41967],[34.07545,-118.42096],[34.07511,-118.42187],[34.07574,-118.42331],[34.07705,-118.42279],[34.07769,-118.42333],[34.07977,-118.42383],[34.07993,-118.42281],[34.08309,-118.4228],[34.08305,-118.42699],[34.09065,-118.42707],[34.09065,-118.42419],[34.09033,-118.42405],[34.09058,-118.42272],[34.09434,-118.42277],[34.09429,-118.414],[34.09227,-118.41192],[34.09352,-118.4115],[34.09488,-118.40947],[34.09556,-118.40922],[34.09617,-118.40953],[34.09717,-118.40867],[34.09758,-118.4091],[34.09848,-118.40882],[34.10018,-118.40909],[34.10153,-118.40829],[34.10148,-118.40544],[34.09632,-118.40535],[34.09369,-118.40245],[34.09423,-118.40171],[34.09386,-118.40143],[34.09402,-118.40092],[34.09513,-118.40094],[34.09599,-118.39998],[34.09632,-118.40095],[34.10858,-118.40106],[34.10863,-118.39869],[34.11096,-118.40011],[34.11151,-118.39924],[34.11164,-118.39723],[34.11164,-118.3964],[34.11123,-118.39604],[34.11244,-118.39589],[34.11245,-118.39117],[34.10923,-118.39061],[34.10751,-118.39123],[34.10654,-118.39226],[34.09982,-118.39211],[34.0962,-118.39544],[34.09621,-118.39654],[34.09509,-118.39654],[34.09504,-118.39595],[34.09108,-118.39588]],"trousdale":[[34.10148,-118.40544],[34.09718,-118.40518],[34.09632,-118.40535],[34.09369,-118.40245],[34.09423,-118.40171],[34.09386,-118.40143],[34.09402,-118.40092],[34.09513,-118.40094],[34.09599,-118.39998],[34.09632,-118.40095],[34.10858,-118.40106],[34.10863,-118.39869],[34.11096,-118.40011],[34.11151,-118.39924],[34.11164,-118.39723],[34.11164,-118.3964],[34.11123,-118.39604],[34.11244,-118.39589],[34.11245,-118.39117],[34.10923,-118.39061],[34.10751,-118.39123],[34.10671,-118.39179],[34.10654,-118.39226],[34.09982,-118.39211],[34.097,-118.39493],[34.0962,-118.39544],[34.09621,-118.39654],[34.09509,-118.39654],[34.09504,-118.39595],[34.09061,-118.39578],[34.09123,-118.39985],[34.09098,-118.40046],[34.08959,-118.4018],[34.08952,-118.40261],[34.08995,-118.40384],[34.08932,-118.4057]],"coldwater":[[34.09313,-118.41167],[34.09352,-118.4115],[34.09488,-118.40947],[34.09556,-118.40922],[34.09617,-118.40953],[34.09659,-118.40909],[34.09714,-118.40892],[34.09717,-118.40867],[34.09758,-118.4091],[34.09848,-118.40882],[34.10018,-118.40909],[34.10048,-118.40864],[34.10068,-118.40876],[34.10131,-118.4082],[34.10153,-118.40829],[34.10148,-118.40544],[34.09718,-118.40518],[34.09632,-118.40535],[34.09556,-118.40451],[34.09435,-118.40695],[34.0944,-118.4077],[34.09376,-118.40843],[34.09439,-118.40941],[34.09335,-118.40988],[34.09307,-118.41023]],"franklin":[[[34.10151,-118.40871],[34.10076,-118.40869],[34.10018,-118.40916],[34.09855,-118.40889],[34.09769,-118.40915],[34.09715,-118.40866],[34.09613,-118.40952],[34.09554,-118.40921],[34.09486,-118.40945],[34.0935,-118.41147],[34.09233,-118.41179],[34.09446,-118.41392],[34.09931,-118.41399],[34.10054,-118.41502],[34.09916,-118.4136],[34.09989,-118.41368],[34.10078,-118.41451],[34.1017,-118.41473],[34.10079,-118.4146],[34.09923,-118.4136],[34.10111,-118.41528],[34.10157,-118.4162],[34.10561,-118.41607],[34.10627,-118.41659],[34.10597,-118.41598],[34.10521,-118.41586],[34.1065,-118.41624],[34.10651,-118.41538],[34.10521,-118.41478],[34.10761,-118.41543],[34.10676,-118.41478],[34.10788,-118.41545],[34.11184,-118.41506],[34.11273,-118.41531],[34.11509,-118.41391],[34.1159,-118.41381],[34.11502,-118.41531],[34.11292,-118.41621],[34.11094,-118.41602],[34.11057,-118.41692],[34.10924,-118.41669],[34.10785,-118.41755],[34.10905,-118.41756],[34.11005,-118.41837],[34.11138,-118.41788],[34.11151,-118.41749],[34.11251,-118.41748],[34.11251,-118.41687],[34.11755,-118.4158],[34.1178,-118.4151],[34.1189,-118.41511],[34.11908,-118.41463],[34.12128,-118.41491],[34.12213,-118.41409],[34.12751,-118.41412],[34.12824,-118.41373],[34.12811,-118.41319],[34.12902,-118.41114],[34.12896,-118.41019],[34.12763,-118.41016],[34.12764,-118.40976],[34.12799,-118.40976],[34.12786,-118.40691],[34.12722,-118.40617],[34.12737,-118.40537],[34.11958,-118.4054],[34.11958,-118.40489],[34.12029,-118.40487],[34.12059,-118.40406],[34.12008,-118.40352],[34.11844,-118.40566],[34.11795,-118.40694],[34.11675,-118.40718],[34.11649,-118.40862],[34.11577,-118.408],[34.11467,-118.4079],[34.11435,-118.40984],[34.1125,-118.41108],[34.11252,-118.41251],[34.11199,-118.41397],[34.11073,-118.41398],[34.1107,-118.4118],[34.10889,-118.41182],[34.10886,-118.40975],[34.10153,-118.40972],[34.10151,-118.40871]],[[34.11504,-118.41511],[34.11576,-118.41387],[34.1128,-118.41542],[34.11079,-118.41544],[34.11031,-118.416],[34.11062,-118.41641],[34.11093,-118.41596],[34.11291,-118.41607],[34.11504,-118.41511]],[[34.11061,-118.41644],[34.11047,-118.41686],[34.10994,-118.41655],[34.10855,-118.41699],[34.1085,-118.41657],[34.10912,-118.41611],[34.11029,-118.41602],[34.11061,-118.41644]],[[34.10853,-118.41699],[34.10735,-118.41696],[34.1064,-118.41637],[34.10848,-118.41658],[34.10853,-118.41699]],[[34.10856,-118.41719],[34.10615,-118.4168],[34.10605,-118.41732],[34.10774,-118.41751],[34.10856,-118.41719]],[[34.10636,-118.41648],[34.10727,-118.4171],[34.1062,-118.41677],[34.10636,-118.41648]],[[34.11057,-118.41556],[34.10869,-118.41563],[34.1087,-118.4163],[34.11057,-118.41556]],[[34.10867,-118.41562],[34.10654,-118.41539],[34.10652,-118.41624],[34.10847,-118.41651],[34.10867,-118.41562]],[[34.10572,-118.41745],[34.1071,-118.41756],[34.10572,-118.41745]]],"reservoirs":[{"name":"Upper Franklin Canyon Reservoir","pts":[[34.12074,-118.41015],[34.12019,-118.41093],[34.11962,-118.41094],[34.11929,-118.41055],[34.12018,-118.40956],[34.12114,-118.40959],[34.12074,-118.41015]]},{"name":"Franklin Canyon Reservoir","pts":[[34.10343,-118.41351],[34.10254,-118.41371],[34.10176,-118.41313],[34.10056,-118.41299],[34.10049,-118.41191],[34.10109,-118.41153],[34.10244,-118.41197],[34.10342,-118.41311],[34.10343,-118.41351]]}],"evac":[{"name":"Carla Ridge","pts":[[34.09788,-118.40101],[34.09775,-118.4002],[34.09782,-118.39991],[34.09799,-118.39982],[34.09821,-118.39987],[34.09855,-118.40025],[34.09909,-118.40038],[34.10102,-118.40012],[34.10224,-118.40032],[34.1032,-118.40026],[34.10391,-118.40039],[34.10454,-118.39971],[34.10484,-118.39964],[34.1056,-118.39977],[34.10638,-118.39924],[34.10707,-118.3991],[34.1074,-118.3985],[34.10759,-118.39699],[34.10858,-118.39599],[34.10884,-118.39556],[34.10914,-118.39302],[34.10966,-118.39261],[34.11063,-118.39272],[34.11144,-118.39179],[34.11192,-118.39164]]},{"name":"Loma Vista Drive","pts":[[34.09118,-118.40006],[34.09184,-118.40003],[34.09321,-118.3991],[34.09481,-118.39884],[34.09598,-118.39887],[34.0972,-118.39865],[34.09878,-118.3988],[34.10044,-118.39839],[34.10155,-118.39838],[34.10246,-118.39794],[34.10352,-118.39791],[34.10436,-118.39707],[34.10519,-118.39543],[34.1067,-118.39433],[34.10746,-118.39244],[34.10791,-118.39212],[34.10815,-118.39209],[34.10864,-118.3921],[34.10932,-118.39246],[34.11039,-118.39483],[34.11099,-118.39583],[34.11156,-118.39634],[34.11146,-118.39922]]},{"name":"Loma Vista Drive","pts":[[34.0878,-118.40195],[34.08861,-118.40105],[34.08994,-118.40004],[34.09039,-118.39993],[34.09118,-118.40006]]}],"coldwater_center":[[34.09415,-118.40703],[34.09745,-118.40618],[34.10161,-118.4062],[34.1038,-118.40547],[34.10885,-118.40549],[34.11062,-118.4046],[34.11427,-118.40394],[34.11649,-118.40378],[34.118,-118.40406],[34.12031,-118.40206],[34.12097,-118.4004],[34.12136,-118.40019],[34.12349,-118.40123],[34.1244,-118.40261],[34.12628,-118.40338]],"ignition":[{"name":"Sim 2: Mulholland Dr and Hazen Dr","pt":[34.11918,-118.39601]},{"name":"Sim 3: Hillcrest Rd and Barrie Dr","pt":[34.10146,-118.39268]},{"name":"Sim 1: Lake Dr and Franklin Canyon Dr","pt":[34.11592,-118.41394]}],"areas":{"trousdale":[34.09994,-118.39854],"coldwater":[34.09673,-118.40848],"franklin":[34.11059,-118.41361],"benedict":[34.09797,-118.43075],"beverlyglen":[34.10511,-118.44586],"station2":[34.09127,-118.41113]},"stations":[{"n":"Fire Station 1 (HQ)","addr":"445 N. Rexford Drive","pt":[34.07245,-118.3998],"agency":"BHFD"},{"n":"Fire Station 2","addr":"1100 Coldwater Canyon Drive","pt":[34.09127,-118.41113],"agency":"BHFD"},{"n":"Fire Station 3","addr":"180 S. Doheny Drive","pt":[34.06543,-118.38957],"agency":"BHFD"},{"n":"LAFD Station 108","addr":"12520 Mulholland Drive","pt":[34.1270293,-118.4062815],"agency":"LAFD"},{"n":"LAFD Station 97","addr":"8021 Mulholland Drive","pt":[34.1261585,-118.3743919],"agency":"LAFD"},{"n":"LAFD Station 109","addr":"16500 Mulholland Drive","pt":[34.1308056,-118.4920744],"agency":"LAFD"}]};
   var CAMERAS = [
     { id: 'Axis-Briar1',        name: 'Star Mtn. 1 (Briarcliff ridge)', lat: 34.12, lon: -118.39 },
     { id: 'Axis-Briar2',        name: 'Star Mtn. 2 (Briarcliff ridge)', lat: 34.12, lon: -118.39 },
@@ -1084,7 +1152,6 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   var NO_NET = 'No internet connection detected.';
   var NO_FIRES = 'No active wildfire incidents reported in the Santa Monica Mountains / LA basin envelope.';
   var NO_ALERTS = 'No NWS alerts for this location.';
-  var FIRE_ROADS_DOWN = 'Fire-road layer unavailable — the terrain layer still shows them.';
   var WIND_DOWN = 'Wind window unavailable right now — open Windy with the link above.';
   var OBS_DOWN = 'Station readings unavailable right now — reopen or press Refresh.';
   var CAM_DOWN = 'Camera frame unavailable — open the camera page.';
@@ -1097,6 +1164,9 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   };
   var SANTA_ANA_DIRS = { N: 1, NNE: 1, NE: 1, ENE: 1, E: 1 };
   var COMPASS_ORDER = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+
+  // City Red Flag triggers (City Red Flag parking page, cited in the gap analysis) and the elevated band used by the calculator
+  var RF_RH = 15, RF_WIND = 25, EL_RH = 20, EL_WIND = 15, EL_GUST = 35;
 
   // ---------- small helpers ----------
   function el(id) { return document.getElementById(id); }
@@ -1132,6 +1202,13 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     try { return new Date().toLocaleString('en-US', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PT'; }
     catch (e) { return new Date().toString(); }
   }
+  function fmtHour(ms) {   // "7 AM"
+    try { return new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric' }); } catch (e) { return ''; }
+  }
+  function fmtDay(ms) {    // "Fri"
+    try { return new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short' }); } catch (e) { return ''; }
+  }
+  function fmtDayHour(ms) { return fmtDay(ms) + ' ' + fmtHour(ms); }
   function windWords(dir) {
     var key = String(dir || '').toUpperCase();
     var c = COMPASS[key];
@@ -1139,6 +1216,11 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     return key + ' (' + c[0] + '°) — from the ' + c[1];
   }
   function degToCompass(deg) { if (deg == null || isNaN(deg)) return ''; return COMPASS_ORDER[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]; }
+  // an arrow that points the way the wind is BLOWING (NWS gives the direction it comes FROM)
+  function arrowHTML(deg) {
+    if (deg == null || isNaN(deg)) return '<span class="warr" aria-hidden="true">·</span>';
+    return '<span class="warr" aria-hidden="true" style="transform:rotate(' + Math.round((deg + 180) % 360) + 'deg)">&#8593;</span>';
+  }
   function rhValue(p) { return (p && p.relativeHumidity && p.relativeHumidity.value != null) ? Math.round(p.relativeHumidity.value) : null; }
   function gustText(p) {
     if (!p || p.windGust == null) return null;
@@ -1168,6 +1250,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     return COMPASS_ORDER[Math.round(b / 22.5) % 16];
   }
   function pt4(p) { return p[0].toFixed(4) + ',' + p[1].toFixed(4); }
+  function shortName(a) { return String(a.name || '').split(' (')[0]; }
 
   // ---------- nearest fire stations ----------
   function nearestStationsTo(pt) {
@@ -1268,7 +1351,9 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   }
 
   // ---------- state ----------
-  var state = { area: AREAS[0], watch: TROUSDALE.slice(), theme: 'dark', measure: false, measurePts: [], fireRoads: 0, fireRoadsLive: 0, fireRoadsTried: false, windyLoaded: false, camTimer: null, lastHourly: null, roadIds: {}, tileFallbacks: [], activeBase: 'terrain', requests: 0, retries: 0, maxAttemptMs: 0, cond: { fcGust: null, fcRh: null, obGust: null, obRh: null, obWhen: null } };
+  var state = { area: AREAS[0], watch: TROUSDALE.slice(), theme: 'dark', view: 'crew', measure: false, measurePts: [], fireRoads: 0, fireRoadsLive: 0, fireRoadsTried: false, windyLoaded: false, camTimer: null, lastHourly: null, roadIds: {}, tileFallbacks: [], activeBase: 'satellite', requests: 0, retries: 0, maxAttemptMs: 0,
+    cond: { fcGust: null, fcRh: null, obGust: null, obRh: null, obWhen: null },
+    hours: null, hoursSource: null, hoursFailed: false, obsNearest: null, alertEvents: null, lastFires: null };
 
   // ---------- threshold alerting ----------
   var THRESH_DEFAULTS = { wind: 25, rh: 15 };   // matches the City's own Red Flag triggers (see Pre-attack quick reference)
@@ -1326,9 +1411,9 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     b.className = 'show';
   }
   function hideThresholdBanner() { var b = el('thresholdBanner'); b.className = ''; b.innerHTML = ''; }
-  function recordForecastCond(rh, gustText) {
+  function recordForecastCond(rh, gustTxt) {
     state.cond.fcRh = rh;
-    var m = gustText && /([\d.]+)/.exec(gustText);
+    var m = gustTxt && /([\d.]+)/.exec(gustTxt);
     state.cond.fcGust = m ? parseFloat(m[1]) : null;
     checkThresholds();
   }
@@ -1405,8 +1490,8 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     });
     h.innerHTML = html;
   }
-  var STAMP_IDS = { forecast: ['asof-now', 'asof-days'], alerts: ['asof-alerts'], obs: ['asof-obs'], fires: ['asof-fires'], tiles: ['asof-tiles'], windy: ['asof-windy'], cams: ['asof-cams'] };
-  var STALE_H2 = { forecast: ['h2-now', 'h2-days'], obs: ['h2-obs'], fires: ['h2-fires'], tiles: ['h2-map'], windy: ['h2-wind'], cams: ['h2-cams'] };
+  var STAMP_IDS = { forecast: ['asof-crew', 'asof-now', 'asof-days'], alerts: ['asof-alerts'], obs: ['asof-obs'], fires: ['asof-fires'], tiles: ['asof-tiles'], windy: ['asof-windy'], cams: ['asof-cams'] };
+  var STALE_H2 = { forecast: ['h2-crew', 'h2-now', 'h2-days'], obs: ['h2-obs'], fires: ['h2-fires'], tiles: ['h2-map'], windy: ['h2-wind'], cams: ['h2-cams'] };
   function stampAsOf(key) {
     (STAMP_IDS[key] || []).forEach(function (id) { var e = el(id); if (e) e.textContent = 'as of ' + fmtAt(lastOK[key]); });
     checkStale();
@@ -1474,12 +1559,245 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   el('themeToggle').addEventListener('click', function () { applyTheme(state.theme === 'dark' ? 'light' : 'dark'); });
   el('printBriefing').addEventListener('click', function () { try { window.print(); } catch (e) {} });
 
+  // ---------- Crew view / Planning view ----------
+  function applyView(v) {
+    state.view = v === 'plan' ? 'plan' : 'crew';
+    var crew = state.view === 'crew';
+    if (crew) document.body.classList.add('crew'); else document.body.classList.remove('crew');
+    el('viewCrew').className = crew ? 'on' : ''; el('viewCrew').setAttribute('aria-pressed', crew ? 'true' : 'false');
+    el('viewPlan').className = crew ? '' : 'on'; el('viewPlan').setAttribute('aria-pressed', crew ? 'false' : 'true');
+    storeSet('tww.view', state.view);
+    if (map) setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 60);
+  }
+  el('viewCrew').addEventListener('click', function () { applyView('crew'); });
+  el('viewPlan').addEventListener('click', function () { applyView('plan'); });
+
+  // ---------- conditions: hour-by-hour data ----------
+  // NWS gridpoint data gives every element (wind, gust, direction, humidity, temperature) as time series with ISO 8601
+  // durations, e.g. "2026-10-02T14:00:00+00:00/PT3H". The hourly forecast often leaves gusts blank, so the grid is the
+  // primary source for the timeline; the hourly forecast is the fallback.
+  function parseDur(s) {
+    var m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(s || '');
+    if (!m) return 3600000;
+    var ms = ((+m[1] || 0) * 24 + (+m[2] || 0)) * 3600000 + (+m[3] || 0) * 60000;
+    return ms || 3600000;
+  }
+  function seriesFn(series) {
+    var spans = [];
+    var uom = String((series && series.uom) || '');
+    ((series && series.values) || []).forEach(function (v) {
+      var parts = String(v.validTime || '').split('/');
+      var start = Date.parse(parts[0]);
+      if (isNaN(start) || v.value == null) return;
+      spans.push([start, start + parseDur(parts[1]), v.value]);
+    });
+    return function (t) {
+      for (var i = 0; i < spans.length; i++) {
+        if (t >= spans[i][0] && t < spans[i][1]) {
+          var val = spans[i][2];
+          if (/km_h/i.test(uom)) val = val * 0.621371;
+          else if (/m_s/i.test(uom)) val = val * 2.23694;
+          else if (/degC/i.test(uom)) val = val * 9 / 5 + 32;
+          return val;
+        }
+      }
+      return null;
+    };
+  }
+  function rnd(v) { return v == null || isNaN(v) ? null : Math.round(v); }
+  function hoursFromGrid(g) {
+    var p = (g && g.properties) || {};
+    var ws = seriesFn(p.windSpeed), wg = seriesFn(p.windGust), wd = seriesFn(p.windDirection), rh = seriesFn(p.relativeHumidity), tp = seriesFn(p.temperature);
+    var start = Math.floor(Date.now() / 3600000) * 3600000;
+    var out = [], gotWind = 0;
+    for (var i = 0; i < 24; i++) {
+      var t = start + i * 3600000;
+      var h = { t: t, wind: rnd(ws(t)), gust: rnd(wg(t)), dir: rnd(wd(t)), rh: rnd(rh(t)), temp: rnd(tp(t)) };
+      if (h.wind != null) gotWind++;
+      out.push(h);
+    }
+    return gotWind ? out : null;
+  }
+  function hoursFromHourly(hj) {
+    var periods = (hj && hj.properties && hj.properties.periods) || [];
+    var out = [];
+    periods.slice(0, 24).forEach(function (p) {
+      var nums = String(p.windSpeed || '').match(/\d+/g);
+      var g = gustText(p), gm = g && /(\d+)/.exec(g);
+      var c = COMPASS[String(p.windDirection || '').toUpperCase()];
+      var temp = p.temperature == null ? null : (String(p.temperatureUnit || 'F') === 'C' ? cToF(p.temperature) : p.temperature);
+      out.push({ t: Date.parse(p.startTime), wind: nums ? Math.max.apply(null, nums.map(Number)) : null, gust: gm ? +gm[1] : null, dir: c ? c[0] : null, rh: rhValue(p), temp: temp });
+    });
+    return out.length ? out : null;
+  }
+  function levelOf(h) {
+    if (!h) return '';
+    if ((h.rh != null && h.rh <= RF_RH) || (h.wind != null && h.wind >= RF_WIND)) return 'r';
+    if ((h.rh != null && h.rh <= EL_RH && h.wind != null && h.wind >= EL_WIND) || (h.gust != null && h.gust >= EL_GUST)) return 'o';
+    return '';
+  }
+  var LEVEL_RANK = { '': 0, o: 1, r: 2 };
+  var LEVEL_WORD = { r: 'Red Flag-level', o: 'Elevated', '': 'Normal' };
+
+  function renderTimeline(hrs) {
+    var rows = { lv: '', hr: '', dir: '', wind: '', gust: '', rh: '', temp: '' };
+    var lastDay = '';
+    hrs.forEach(function (h, i) {
+      var lv = levelOf(h);
+      var day = fmtDay(h.t);
+      var newDay = day !== lastDay; lastDay = day;
+      var cls = (lv ? lv : '') + (i === 0 ? ' now' : '') + (newDay && i > 0 ? ' day' : '');
+      var c = ' class="' + cls.trim() + '"';
+      var label = fmtHour(h.t).replace(' AM', 'a').replace(' PM', 'p');
+      rows.lv += '<td' + c + '>' + (lv === 'r' ? 'RF' : lv === 'o' ? 'Elev' : '') + '</td>';
+      rows.hr += '<td' + c + ' title="' + esc(fmtDayHour(h.t)) + '">' + (i === 0 ? 'Now' : (newDay ? '<span class="small">' + esc(day) + '</span> ' : '') + esc(label)) + '</td>';
+      rows.dir += '<td' + c + ' title="' + (h.dir == null ? 'direction not given' : 'from the ' + esc(degToCompass(h.dir))) + '">' + arrowHTML(h.dir) + '<div class="small">' + esc(degToCompass(h.dir)) + '</div></td>';
+      rows.wind += '<td' + c + '>' + (h.wind == null ? '—' : esc(h.wind)) + '</td>';
+      rows.gust += '<td' + c + '>' + (h.gust == null ? '—' : esc(h.gust)) + '</td>';
+      rows.rh += '<td' + c + '>' + (h.rh == null ? '—' : esc(h.rh) + '%') + '</td>';
+      rows.temp += '<td' + c + '>' + (h.temp == null ? '—' : esc(h.temp) + '°') + '</td>';
+    });
+    var html = '<table class="tl"><tbody>' +
+      '<tr class="lv"><th scope="row">Level</th>' + rows.lv + '</tr>' +
+      '<tr class="hr"><th scope="row">Hour</th>' + rows.hr + '</tr>' +
+      '<tr><th scope="row">Wind from</th>' + rows.dir + '</tr>' +
+      '<tr><th scope="row">Wind mph</th>' + rows.wind + '</tr>' +
+      '<tr><th scope="row">Gust mph</th>' + rows.gust + '</tr>' +
+      '<tr><th scope="row">Humidity</th>' + rows.rh + '</tr>' +
+      '<tr><th scope="row">Temp °F</th>' + rows.temp + '</tr>' +
+      '</tbody></table>';
+    setHTML('timeline', html, 'tlwrap');
+    el('tlSummary').innerHTML = timelineSummary(hrs) + (state.hoursSource === 'hourly' ? ' <span class="small">(Gridpoint data did not answer; this is the NWS hourly forecast, which often leaves gusts blank.)</span>' : '');
+  }
+  function runsOf(hrs, lv) {
+    var runs = [], cur = null;
+    hrs.forEach(function (h, i) {
+      if (levelOf(h) === lv) { if (!cur) cur = { a: i, b: i }; else cur.b = i; }
+      else if (cur) { runs.push(cur); cur = null; }
+    });
+    if (cur) runs.push(cur);
+    return runs;
+  }
+  function peakOf(hrs, key, fn) {
+    var best = null;
+    hrs.forEach(function (h) { if (h[key] == null) return; if (!best || fn(h[key], best[key])) best = h; });
+    return best;
+  }
+  function timelineSummary(hrs) {
+    var g = peakOf(hrs, 'gust', function (a, b) { return a > b; });
+    var w = peakOf(hrs, 'wind', function (a, b) { return a > b; });
+    var r = peakOf(hrs, 'rh', function (a, b) { return a < b; });
+    var peaks = [];
+    if (g) peaks.push('peak gust ' + g.gust + ' mph ' + fmtDayHour(g.t));
+    else if (w) peaks.push('strongest wind ' + w.wind + ' mph ' + fmtDayHour(w.t));
+    if (r) peaks.push('lowest humidity ' + r.rh + '% ' + fmtDayHour(r.t));
+    var tail = peaks.length ? ' ' + peaks.join('; ').replace(/^./, function (c) { return c.toUpperCase(); }) + '.' : '';
+    var red = runsOf(hrs, 'r'), orn = runsOf(hrs, 'o');
+    function span(run) {
+      var n = run.b - run.a + 1;
+      return (run.a === 0 ? 'now' : fmtDayHour(hrs[run.a].t)) + (n > 1 ? ' through ' + fmtDayHour(hrs[run.b].t) : '') + ' (' + n + ' hour' + (n === 1 ? '' : 's') + ')';
+    }
+    if (red.length) return '<strong>Red Flag-level conditions forecast ' + esc(span(red[0])) + (red.length > 1 ? ', and again later' : '') + '.</strong>' + esc(tail);
+    if (orn.length) return '<strong>Elevated conditions forecast ' + esc(span(orn[0])) + (orn.length > 1 ? ', and again later' : '') + '.</strong> No Red Flag-level hours.' + esc(tail);
+    return 'No Red Flag-level or elevated hours forecast in the next 24 hours.' + esc(tail);
+  }
+
+  function renderCrewNow() {
+    var h = state.hours && state.hours[0];
+    var s = sunTimes(new Date(), state.watch[0], state.watch[1]);
+    if (!h) { el('crewNow').innerHTML = ''; return; }
+    var comp = degToCompass(h.dir);
+    var html =
+      '<div><div class="l">Wind</div><div class="n">' + arrowHTML(h.dir) + (h.wind == null ? '—' : esc(h.wind)) + '<span style="font-size:20px"> mph</span></div><div class="d">' + (comp ? esc(windWords(comp)) : 'direction not given') + '</div></div>' +
+      '<div><div class="l">Gusts</div><div class="n">' + (h.gust == null ? '—' : esc(h.gust) + '<span style="font-size:20px"> mph</span>') + '</div><div class="d">' + (h.gust == null ? 'not in the forecast' : 'forecast peak this hour') + '</div></div>' +
+      '<div><div class="l">Humidity</div><div class="n">' + (h.rh == null ? '—' : esc(h.rh) + '%') + '</div><div class="d">' + (h.rh == null ? 'not given' : h.rh <= RF_RH ? 'at or below the 15% trigger' : h.rh <= EL_RH ? 'very dry (20% or lower)' : h.rh <= 35 ? 'dry' : 'not critically dry') + '</div></div>' +
+      '<div><div class="l">Temperature</div><div class="n">' + (h.temp == null ? '—' : esc(h.temp) + '°') + '</div><div class="d">forecast this hour</div></div>' +
+      '<div><div class="l">Sunset</div><div class="n" style="font-size:30px">' + esc(s.sunset ? fmtClock(s.sunset) : '—') + '</div><div class="d">civil dusk ' + esc(s.dusk ? fmtClock(s.dusk) : '—') + '</div></div>';
+    el('crewNow').innerHTML = html;
+  }
+  function renderCrewObs() {
+    var o = state.obsNearest;
+    if (!o) { el('crewObs').textContent = ''; return; }
+    el('crewObs').innerHTML = 'Nearest observed reading: <strong>' + esc(o.name || o.id) + '</strong>' + (o.dist != null ? ', ' + esc(o.dist.toFixed(1)) + ' mi away' : '') + ' — ' +
+      (o.temp == null ? '' : esc(o.temp) + '°F, ') + 'humidity ' + (o.rh == null ? '—' : esc(o.rh) + '%') + ', wind ' + (o.wind == null ? '—' : esc(o.wind) + ' mph' + (o.dir != null ? ' from the ' + esc(degToCompass(o.dir)) : '')) + ', gusts ' + (o.gust == null ? '—' : esc(o.gust) + ' mph') + (o.when ? ', at ' + esc(fmtTime(o.when)) : '') + '.';
+  }
+
+  // the verdict: worst of this hour's forecast, the nearest observed reading, and any active NWS fire-weather alert
+  function renderVerdict() {
+    var box = el('verdict'); if (!box) return;
+    var hrs = state.hours, h0 = hrs && hrs[0], o = state.obsNearest, alerts = state.alertEvents || [];
+    if (!h0 && !o && !alerts.length) {
+      box.className = 'verdict wait';
+      box.innerHTML = '<div class="lvl">' + (state.hoursFailed ? 'Forecast unavailable' : 'Reading the forecast…') + '</div>' + (state.hoursFailed ? '<div>' + esc(offline() ? NO_NET : WEATHER_DOWN) + '</div>' : '');
+      return;
+    }
+    var lv = '', why = [];
+    function bump(l) { if (LEVEL_RANK[l] > LEVEL_RANK[lv]) lv = l; }
+    alerts.forEach(function (a) {
+      if (/red flag warning/i.test(a.event)) { bump('r'); why.push('NWS ' + a.event + ' in effect' + (a.ends ? ' until ' + fmtTime(a.ends) : '') + '.'); }
+      else if (/fire weather watch|high wind|wind advisory|extreme fire/i.test(a.event)) { bump('o'); why.push('NWS ' + a.event + ' in effect' + (a.ends ? ' until ' + fmtTime(a.ends) : '') + '.'); }
+    });
+    var srcF = 'forecast', srcO = o ? 'observed at ' + (o.name || o.id) : '';
+    function worst(key, hi) {
+      var f = h0 ? h0[key] : null, b = o ? o[key] : null;
+      if (f == null && b == null) return null;
+      if (f == null) return { v: b, src: srcO };
+      if (b == null) return { v: f, src: srcF };
+      return (hi ? b > f : b < f) ? { v: b, src: srcO } : { v: f, src: srcF };
+    }
+    var rh = worst('rh', false), wind = worst('wind', true), gust = worst('gust', true);
+    if (rh && rh.v <= RF_RH) { bump('r'); why.push('Humidity ' + rh.v + '% (' + rh.src + ') — at or below the City\'s 15% trigger.'); }
+    if (wind && wind.v >= RF_WIND) { bump('r'); why.push('Sustained wind ' + wind.v + ' mph (' + wind.src + ') — at or above the City\'s 25 mph trigger.'); }
+    if (lv !== 'r') {
+      if (rh && wind && rh.v <= EL_RH && wind.v >= EL_WIND) { bump('o'); why.push('Humidity ' + rh.v + '% with wind ' + wind.v + ' mph — dry and windy, below the Red Flag triggers.'); }
+      if (gust && gust.v >= EL_GUST) { bump('o'); why.push('Gusts ' + gust.v + ' mph (' + gust.src + ') — at the 35 mph gust figure in the City\'s trigger.'); }
+    }
+    if (!why.length) why.push('Humidity ' + (rh ? rh.v + '%' : '—') + ', wind ' + (wind ? wind.v + ' mph' : '—') + (gust ? ', gusts ' + gust.v + ' mph' : '') + ' — below the City\'s Red Flag triggers.');
+    var ahead = '';
+    if (hrs && hrs.length > 1) {
+      var curRank = LEVEL_RANK[lv], i, firstWorse = -1, firstRed = -1;
+      for (i = 1; i < hrs.length; i++) {
+        var lr = LEVEL_RANK[levelOf(hrs[i])];
+        if (firstWorse < 0 && lr > curRank) firstWorse = i;
+        if (firstRed < 0 && lr === 2 && curRank < 2) firstRed = i;
+      }
+      if (firstWorse > 0) {
+        var rest = hrs.slice(firstWorse);
+        var pg = peakOf(rest, 'gust', function (a, b) { return a > b; }), pr = peakOf(rest, 'rh', function (a, b) { return a < b; });
+        var steps = [];
+        if (firstRed > firstWorse) steps.push('Elevated from ' + fmtDayHour(hrs[firstWorse].t));
+        if (firstRed > 0) steps.push('Red Flag-level from ' + fmtDayHour(hrs[firstRed].t));
+        else steps.push('Elevated from ' + fmtDayHour(hrs[firstWorse].t));
+        ahead = 'Ahead: ' + steps.join(', ') + (pg ? '; gusts to ' + pg.gust + ' mph' : '') + (pr ? ', humidity down to ' + pr.rh + '%' : '') + '.';
+      } else if (curRank > 0) {
+        var clearFrom = -1;
+        for (i = hrs.length - 1; i >= 1; i--) { if (levelOf(hrs[i]) !== '') break; clearFrom = i; }
+        ahead = clearFrom > 0 ? 'Ahead: the forecast drops below the triggers around ' + fmtDayHour(hrs[clearFrom].t) + '.' : 'Ahead: no easing forecast in the next 24 hours.';
+        if (alerts.length && clearFrom > 0) ahead += ' Any NWS warning stays in force until it expires.';
+      } else {
+        ahead = 'Ahead: no Red Flag-level or elevated hours forecast in the next 24 hours.';
+      }
+    }
+    var title = lv === 'r' ? 'Red Flag conditions' : lv === 'o' ? 'Elevated' : 'Normal';
+    box.className = 'verdict ' + (lv === 'r' ? 'red' : lv === 'o' ? 'orange' : 'green') + (/Red Flag-level from/.test(ahead) ? ' warn' : '');
+    box.innerHTML = '<div class="lvl">' + esc(title) + '</div><ul class="why">' + why.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' + (ahead ? '<div class="ahead">' + esc(ahead) + '</div>' : '');
+    updateWindPin();
+  }
+  function crewFail() {
+    state.hoursFailed = true;
+    setNote('timeline', offline() ? NO_NET : WEATHER_DOWN);
+    el('tlSummary').textContent = '';
+    renderVerdict();
+  }
+
   // ---------- section renderers (phase 1, now per watch point) ----------
   function renderAlerts(j) {
     var feats = (j && j.features) || [];
     feedOK('alerts');
     lastNewAlertNames = noteNewAlerts(feats);
     if (lastNewAlertNames.length) checkThresholds();
+    state.alertEvents = feats.map(function (f) { var p = (f && f.properties) || {}; return { event: String(p.event || ''), ends: p.ends || p.expires || null }; });
+    renderVerdict();
     if (!feats.length) { setNote('alerts', NO_ALERTS, 'ok'); return; }
     var html = '';
     feats.forEach(function (f) {
@@ -1565,19 +1883,22 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     feedOK('forecast');
   }
 
-  function renderFires(j) {
+  // again = true re-renders the last answer for a new watch point (no new data, so the feed stamp is not touched)
+  function renderFires(j, again) {
     if (!j || j.error) throw new Error((j && j.error && j.error.message) || 'fire feed returned an error');
     var feats = j.features || [];
-    feedOK('fires');
-    if (!feats.length) { setNote('fires', NO_FIRES, 'ok'); return; }
+    if (!again) { feedOK('fires'); state.lastFires = j; }
+    var from = state.watch, fromName = shortName(state.area);
+    el('firesFrom').textContent = fromName;
+    if (!feats.length) { setNote('fires', NO_FIRES, 'ok'); try { drawFireMarkers([]); } catch (e) { quiet(e); } return; }
     var typeName = { WF: 'Wildfire', RX: 'Prescribed burn', CX: 'Complex' };
     var items = [];
     var latest = 0;
     feats.forEach(function (f) {
       var a = (f && f.attributes) || {};
       var g = (f && f.geometry) || {};
-      var dist = (typeof g.y === 'number' && typeof g.x === 'number') ? haversineMi(TROUSDALE[0], TROUSDALE[1], g.y, g.x) : null;
-      var dir = dist != null ? bearingWord(TROUSDALE[0], TROUSDALE[1], g.y, g.x) : '';
+      var dist = (typeof g.y === 'number' && typeof g.x === 'number') ? haversineMi(from[0], from[1], g.y, g.x) : null;
+      var dir = dist != null ? bearingWord(from[0], from[1], g.y, g.x) : '';
       if (a.ModifiedOnDateTime_dt && a.ModifiedOnDateTime_dt > latest) latest = a.ModifiedOnDateTime_dt;
       items.push({ a: a, dist: dist, dir: dir, lat: g.y, lon: g.x });
     });
@@ -1597,7 +1918,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
         '<td>' + (it.dist == null ? '—' : esc(it.dist.toFixed(1)) + ' mi ' + esc(it.dir)) + '</td></tr>';
     });
     var stamp = latest ? '<div class="small">Feed last changed ' + esc(fmtTime(latest)) + ' &middot; ' + items.length + ' incident' + (items.length === 1 ? '' : 's') + ' in the box. Blank acres or containment means the agency has not reported it yet.</div>' : '';
-    setHTML('fires', '<div class="table-wrap"><table><thead><tr><th>Incident</th><th>County</th><th>Acres</th><th>Contained</th><th>Discovered</th><th>Distance from Trousdale</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + stamp, '');
+    setHTML('fires', '<div class="table-wrap"><table><thead><tr><th>Incident</th><th>County</th><th>Acres</th><th>Contained</th><th>Discovered</th><th>Distance from ' + esc(fromName) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + stamp, '');
     try { drawFireMarkers(items); } catch (e) { quiet(e); }
   }
 
@@ -1613,7 +1934,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
       '<td>' + (wg == null ? '—' : esc(wg) + ' mph') + '</td>' +
       '<td>' + esc(p.timestamp ? fmtTime(p.timestamp) : '—') + '</td></tr>';
   }
-  function loadObservations(stationsUrl) {
+  function loadObservations(stationsUrl, run) {
     var list = [];
     var seen = {};
     function add(id, name, dist) { if (!id || seen[id]) return; seen[id] = 1; list.push({ id: id, name: name, dist: dist }); }
@@ -1637,6 +1958,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
           .then(function (o) { return { s: s, o: o }; }, function (e) { quiet(e); return { s: s, o: null }; });
       }));
     }).then(function (rs) {
+      if (run != null && run !== weatherRun) return;
       var rows = '', got = 0, nearest = null;
       rs.forEach(function (r) {
         if (!r.o) return;
@@ -1650,7 +1972,9 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
         function ov(k) { var x = op[k]; return (x && x.value != null) ? x.value : null; }
         var oRh = ov('relativeHumidity'); oRh = oRh == null ? null : Math.round(oRh);
         var oGust = kmhToMph(ov('windGust'));
+        state.obsNearest = { id: nearest.s.id, name: nearest.s.name, dist: nearest.s.dist, rh: oRh, gust: oGust, wind: kmhToMph(ov('windSpeed')), dir: ov('windDirection'), temp: cToF(ov('temperature')), when: op.timestamp };
         recordObsCond(oRh, oGust, op.timestamp);
+        renderCrewObs(); renderVerdict();
       }
       setHTML('obs', '<div class="table-wrap"><table><thead><tr><th>Station</th><th>Temp</th><th>Humidity</th><th>Wind</th><th>Gust</th><th>Observed</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="small">Sorted by distance from ' + esc(state.area.name) + '. A blank cell means that station did not report that value.</div>', '');
     }).catch(function (e) { quiet(e); feedFail('obs'); setNote('obs', offline() ? NO_NET : OBS_DOWN); });
@@ -1659,11 +1983,13 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   // ---------- cameras ----------
   function camFrameUrl(id) { return CAMERA_BASE + 'public-camera-data/' + encodeURIComponent(id) + '/latest-frame.jpg?t=' + Date.now(); }
   function renderCameras() {
-    var html = '';
-    CAMERAS.forEach(function (c) {
-      var d = haversineMi(TROUSDALE[0], TROUSDALE[1], c.lat, c.lon);
+    var html = '', from = state.watch, fromName = shortName(state.area);
+    var cams = CAMERAS.map(function (c) { return { c: c, d: haversineMi(from[0], from[1], c.lat, c.lon) }; });
+    cams.sort(function (a, b) { return a.d - b.d; });
+    cams.forEach(function (x) {
+      var c = x.c;
       html += '<div class="cam" data-id="' + esc(c.id) + '"><a href="' + esc(CAMERA_BASE + '?id=' + encodeURIComponent(c.id)) + '" target="_blank" rel="noopener"><img alt="' + esc(c.name) + ' latest frame" loading="lazy" data-cam="' + esc(c.id) + '"></a>' +
-        '<div class="cap"><a href="' + esc(CAMERA_BASE + '?id=' + encodeURIComponent(c.id)) + '" target="_blank" rel="noopener"><strong>' + esc(c.name) + '</strong></a><div class="small">' + esc(c.id) + ' · ' + esc(d.toFixed(1)) + ' mi ' + esc(bearingWord(TROUSDALE[0], TROUSDALE[1], c.lat, c.lon)) + ' of Trousdale · <span class="camstat">loading…</span></div></div></div>';
+        '<div class="cap"><a href="' + esc(CAMERA_BASE + '?id=' + encodeURIComponent(c.id)) + '" target="_blank" rel="noopener"><strong>' + esc(c.name) + '</strong></a><div class="small">' + esc(c.id) + ' · ' + esc(x.d.toFixed(1)) + ' mi ' + esc(bearingWord(from[0], from[1], c.lat, c.lon)) + ' of ' + esc(fromName) + ' · <span class="camstat">loading…</span></div></div></div>';
     });
     el('cams').innerHTML = html;
     var imgs = document.querySelectorAll('img[data-cam]');
@@ -1734,14 +2060,17 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   }
 
   // ---------- map ----------
-  var map = null, baseLayers = {}, overlayGroups = {}, fireRoadLayer = null, fireMarkerLayer = null, measureLayer = null, watchMarker = null;
+  var map = null, baseLayers = {}, overlayGroups = {}, measureLayer = null, watchMarker = null, windPin = null;
   var tileStats = { loaded: 0, errors: 0 };
   function initMap() {
     if (typeof L === 'undefined') throw new Error('Leaflet missing');
     // marker images are inlined as data URIs (one-file rule)
     L.Icon.Default.mergeOptions({ iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAApCAYAAADAk4LOAAAFgUlEQVR4Aa1XA5BjWRTN2oW17d3YaZtr2962HUzbDNpjszW24mRt28p47v7zq/bXZtrp/lWnXr337j3nPCe85NcypgSFdugCpW5YoDAMRaIMqRi6aKq5E3YqDQO3qAwjVWrD8Ncq/RBpykd8oZUb/kaJutow8r1aP9II0WmLKLIsJyv1w/kqw9Ch2MYdB++12Onxee/QMwvf4/Dk/Lfp/i4nxTXtOoQ4pW5Aj7wpici1A9erdAN2OH64x8OSP9j3Ft3b7aWkTg/Fm91siTra0f9on5sQr9INejH6CUUUpavjFNq1B+Oadhxmnfa8RfEmN8VNAsQhPqF55xHkMzz3jSmChWU6f7/XZKNH+9+hBLOHYozuKQPxyMPUKkrX/K0uWnfFaJGS1QPRtZsOPtr3NsW0uyh6NNCOkU3Yz+bXbT3I8G3xE5EXLXtCXbbqwCO9zPQYPRTZ5vIDXD7U+w7rFDEoUUf7ibHIR4y6bLVPXrz8JVZEql13trxwue/uDivd3fkWRbS6/IA2bID4uk0UpF1N8qLlbBlXs4Ee7HLTfV1j54APvODnSfOWBqtKVvjgLKzF5YdEk5ewRkGlK0i33Eofffc7HT56jD7/6U+qH3Cx7SBLNntH5YIPvODnyfIXZYRVDPqgHtLs5ABHD3YzLuespb7t79FY34DjMwrVrcTuwlT55YMPvOBnRrJ4VXTdNnYug5ucHLBjEpt30701A3Ts+HEa73u6dT3FNWwflY86eMHPk+Yu+i6pzUpRrW7SNDg5JHR4KapmM5Wv2E8Tfcb1HoqqHMHU+uWDD7zg54mz5/2BSnizi9T1Dg4QQXLToGNCkb6tb1NU+QAlGr1++eADrzhn/u8Q2YZhQVlZ5+CAOtqfbhmaUCS1ezNFVm2imDbPmPng5wmz+gwh+oHDce0eUtQ6OGDIyR0uUhUsoO3vfDmmgOezH0mZN59x7MBi++WDL1g/eEiU3avlidO671bkLfwbw5XV2P8Pzo0ydy4t2/0eu33xYSOMOD8hTf4CrBtGMSoXfPLchX+J0ruSePw3LZeK0juPJbYzrhkH0io7B3k164hiGvawhOKMLkrQLyVpZg8rHFW7E2uHOL888IBPlNZ1FPzstSJM694fWr6RwpvcJK60+0HCILTBzZLFNdtAzJaohze60T8qBzyh5ZuOg5e7uwQppofEmf2++DYvmySqGBuKaicF1blQjhuHdvCIMvp8whTTfZzI7RldpwtSzL+F1+wkdZ2TBOW2gIF88PBTzD/gpeREAMEbxnJcaJHNHrpzji0gQCS6hdkEeYt9DF/2qPcEC8RM28Hwmr3sdNyht00byAut2k3gufWNtgtOEOFGUwcXWNDbdNbpgBGxEvKkOQsxivJx33iow0Vw5S6SVTrpVq11ysA2Rp7gTfPfktc6zhtXBBC+adRLshf6sG2RfHPZ5EAc4sVZ83yCN00Fk/4kggu40ZTvIEm5g24qtU4KjBrx/BTTH8ifVASAG7gKrnWxJDcU7x8X6Ecczhm3o6YicvsLXWfh3Ch1W0k8x0nXF+0fFxgt4phz8QvypiwCCFKMqXCnqXExjq10beH+UUA7+nG6mdG/Pu0f3LgFcGrl2s0kNNjpmoJ9o4B29CMO8dMT4Q5ox8uitF6fqsrJOr8qnwNbRzv6hSnG5wP+64C7h9lp30hKNtKdWjtdkbuPA19nJ7Tz3zR/ibgARbhb4AlhavcBebmTHcFl2fvYEnW0ox9xMxKBS8btJ+KiEbq9zA4RthQXDhPa0T9TEe69gWupwc6uBUphquXgf+/FrIjweHQS4/pduMe5ERUMHUd9xv8ZR98CxkS4F2n3EUrUZ10EYNw7BWm9x1GiPssi3GgiGRDKWRYZfXlON+dfNbM+GgIwYdwAAAAASUVORK5CYII=', iconRetinaUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABSCAMAAAAhFXfZAAAC91BMVEVMaXEzeak2f7I4g7g3g7cua5gzeKg8hJo3grY4g7c3grU0gLI2frE0daAubJc2gbQwd6QzeKk2gLMtd5sxdKIua5g1frA2f7IydaM0e6w2fq41fK01eqo3grgubJgta5cxdKI1f7AydaQydaMxc6EubJgvbJkwcZ4ubZkwcJwubZgubJcydqUydKIxapgubJctbJcubZcubJcvbJYubJcvbZkubJctbJctbZcubJg2f7AubJcrbZcubJcubJcua5g3grY0fq8ubJcubJdEkdEwhsw6i88vhswuhcsuhMtBjMgthMsrg8srgss6is8qgcs8i9A9iMYtg8spgcoogMo7hcMngMonf8olfso4gr8kfck5iM8jfMk4iM8he8k1fro7itAgesk2hs8eecgzfLcofssdeMg0hc4cd8g2hcsxeLQbdsgZdcgxeLImfcszhM0vda4xgckzhM4xg84wf8Yxgs4udKsvfcQucqhUndROmdM1fK0wcZ8vb5w0eqpQm9MzeKhXoNVcpdYydKNWn9VZotVKltJFjsIwcJ1Rms9OlslLmtH///8+kc9epdYzd6dbo9VHkMM2f7FHmNBClM8ydqVcpNY9hro3gLM9hLczealQmcw3fa46f7A8gLMxc6I3eagyc6FIldJMl9JSnNRSntNNl9JPnNJFi75UnM9ZodVKksg8kM45jc09e6ZHltFBk883gbRBh7pDk9EwcaBzn784g7dKkcY2i81Om9M7j85Llc81is09g7Q4grY/j9A0eqxKmdFFltBEjcXf6fFImdBCiLxJl9FGlNFBi78yiMxVndEvbpo6js74+vx+psPP3+o/ks5HkcpGmNCjwdZCkNDM3ehYoNJEls+lxNkxh8xHks0+jdC1zd5Lg6r+/v/H2ufz9/o3jM3t8/edvdM/k89Th61OiLBSjbZklbaTt9BfptdjmL1AicBHj8hGk9FAgK1dkLNTjLRekrdClc/k7fM0icy0y9tgp9c4jc2NtM9Dlc8zicxeXZn3AAAAQ3RSTlMAHDdTb4yPA+LtnEQmC4L2EmHqB7XA0d0sr478x4/Yd5i1zOfyPkf1sLVq4Nh3FvjxopQ2/STNuFzUwFIwxKaejILpIBEV9wAABhVJREFUeF6s1NdyFEcYBeBeoQIhRAkLlRDGrhIgY3BJL8CVeKzuyXFzzjkn5ZxzzuScg3PO8cKzu70JkO0LfxdTU//pM9vTu7Xgf6KqOVTb9X7toRrVEfBf1HTVjZccrT/2by1VV928Yty9ZbVuucdz90frG8DBjl9pVApbOstvmMuvVgaNXSfAAd6pGxpy6yxf5ph43pS/4f3uoaGm2rdu72S9xzOvMymkZFq/ptDrk90mhW7e4zl7HLzhxGWPR20xmSxJ/VqldG5m9XhaVOA1DadsNh3Pu5L2N6QtPO/32JpqQBVVk20oy/Pi2s23WEvyfHbe1thadVQttvm7Llf65gGmXK67XtupyoM7HQhmXdLS8oGWJNeOJ3C5fG5XCEJnkez3/oFdsvgJ4l2ANZwhrJKk/7OSXa+3Vw2WJMlKnGkobouYk6T0TyX30klOUnTD9HJ5qpckL3EW/w4XF3Xd0FGywXUrstrclVsqz5Pd/sXFYyDnPdrLcQODmGOK47IZb4CmibmMn+MYRzFZ5jg33ZL/EJrWcszHmANy3ARBK/IXtciJy8VsitPSdE3uuHxzougojcUdr8/32atnz/ev3f/K5wtpxUTpcaI45zusVDpYtZi+jg0oU9b3x74h7+n9ABvYEZeKaVq0sh0AtLKsFtqNBdeT0MrSzwwlq9+x6xAO4tgOtSzbCjrNQQiNvQUbUEubvzBUeGw26yDCsRHCoLkTHDa7IdOLIThs/gHvChszh2CimE8peRs47cxANI0lYNB5y1DljpOF0IhzBDPOZnDOqYYbeGKECbPzWnXludPphw5c2YBq5zlwXphIbO4VDCZ0gnPfUO1TwZoYwAs2ExPCedAu9DAjfQUjzITQb3jNj0KG2Sgt6BHaQUdYzWz+XmBktOHwanXjaSTcwwziBcuMOtwBmqPrTOxFQR/DRKKPqyur0aiW6cULYsx6tBm0jXpR/AUWR6HRq9WVW6MRhIq5jLyjbaCTDCijyYJNpCajdyobP/eTw0iexBAKkJ3gA5KcQb2zBXsIBckn+xVv8jkZSaEFHE+jFEleAEfayRU0MouNoBmB/L50Ai/HSLIHxcrpCvnhSQAuakKp2C/YbCylJjXRVy/z3+Kv/RrNcCo+WUzlVEhzKffnTQnxeN9fWF88fiNCUdSTsaufaChKWInHeysygfpIqagoakW+vV20J8uyl6TyNKEZWV4oRSPyCkWpgOLSbkCObT8o2r6tlG58HQquf6O0v50tB7JM7F4EORd2dx/K0w/KHsVkLPaoYrwgP/y7krr3SSMA4zj+OBgmjYkxcdIJQyQRKgg2viX9Hddi9UBb29LrKR7CVVEEEXWojUkXNyfTNDE14W9gbHJNuhjDettN3ZvbOvdOqCD3Jp/9l+/wJE+9PkYGjx/fqkys3S2rMozM/o2106rfMUINo6hVqz+eu/hd1c4xTg0TAfy5kV+4UG6+IthHTU9woWmxuKNbTfuCSfovBCxq7EtHqvYL4Sm6F8GVxsSXHMQ07TOi1DKtZxjWaaIyi4CXWjxPccUw8WVbMYY5wxC1mzEyXMJWkllpRloi+Kkoq69sxBTlElF6aAxYUbjXNlhlDZilDnM4U5SlN5biRsRHnbx3mbeWjEh4mEyiuJDl5XcWVmX5GvNkFgLWZM5qwsop4/AWfLhU1cR7k1VVvcYCWRkOI6Xy5gmnphCYIkvzuNYzHzosq2oNk2RtSs8khfUOfHIDgR6ysYBaMpl4uEgk2U/oJTs9AaTSwma7dT69geAE2ZpEjUsn2ieJNHeKfrI3EcAGJ2ZaNgVuC8EBctCLc57P5u5led6IOBkIYkuQMrmmjChs4VkfOerHqSBkPzZlhe06RslZ3zMjk2sscqKwY0RcjKK+LWbzd7KiHhkncs/siFJ+V5eXxD34B8nVuJEpGJNmxN2gH3vSvp7J70tF+D1Ej8qUJD1TkErAND2GZwTFg/LubvmgiBG3SOvdlsqFQrkEzJCL1rstlnVFROixZoDDSuXQFHESwVGlcuQcMb/b42NgjLowh5MTDFE3vNB5qStRIErdCQEh6pLPR92anSUb/wAIhldAaDMpGgAAAABJRU5ErkJggg==', shadowUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAApCAQAAAACach9AAACMUlEQVR4Ae3ShY7jQBAE0Aoz/f9/HTMzhg1zrdKUrJbdx+Kd2nD8VNudfsL/Th///dyQN2TH6f3y/BGpC379rV+S+qqetBOxImNQXL8JCAr2V4iMQXHGNJxeCfZXhSRBcQMfvkOWUdtfzlLgAENmZDcmo2TVmt8OSM2eXxBp3DjHSMFutqS7SbmemzBiR+xpKCNUIRkdkkYxhAkyGoBvyQFEJEefwSmmvBfJuJ6aKqKWnAkvGZOaZXTUgFqYULWNSHUckZuR1HIIimUExutRxwzOLROIG4vKmCKQt364mIlhSyzAf1m9lHZHJZrlAOMMztRRiKimp/rpdJDc9Awry5xTZCte7FHtuS8wJgeYGrex28xNTd086Dik7vUMscQOa8y4DoGtCCSkAKlNwpgNtphjrC6MIHUkR6YWxxs6Sc5xqn222mmCRFzIt8lEdKx+ikCtg91qS2WpwVfBelJCiQJwvzixfI9cxZQWgiSJelKnwBElKYtDOb2MFbhmUigbReQBV0Cg4+qMXSxXSyGUn4UbF8l+7qdSGnTC0XLCmahIgUHLhLOhpVCtw4CzYXvLQWQbJNmxoCsOKAxSgBJno75avolkRw8iIAFcsdc02e9iyCd8tHwmeSSoKTowIgvscSGZUOA7PuCN5b2BX9mQM7S0wYhMNU74zgsPBj3HU7wguAfnxxjFQGBE6pwN+GjME9zHY7zGp8wVxMShYX9NXvEWD3HbwJf4giO4CFIQxXScH1/TM+04kkBiAAAAAElFTkSuQmCC' });
-    map = L.map('map', { center: AREAS[0].center, zoom: AREAS[0].zoom, zoomControl: true });
-    var BASE_ORDER = ['terrain', 'usgs', 'satellite', 'streets'];
+    map = L.map('map', { center: AREAS[0].center, zoom: AREAS[0].zoom, zoomControl: true, maxZoom: 19 });
+    // street and place names sit above the imagery but below the fire roads and overlays, and never catch clicks
+    var labelPane = map.createPane('labels');
+    labelPane.style.zIndex = 350;
+    labelPane.style.pointerEvents = 'none';
     tileStats.byLayer = {};
     Object.keys(TILES).forEach(function (k) {
       var t = TILES[k];
@@ -1756,7 +2085,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
         if (s.loaded === 0 && s.errors >= 4) {
           var i = BASE_ORDER.indexOf(k);
           var next = null;
-          for (var j = i + 1; j < BASE_ORDER.length; j++) { var cand = BASE_ORDER[j]; var cs = tileStats.byLayer[cand]; if (!cs || cs.loaded > 0 || cs.errors < 4) { next = cand; break; } }
+          for (var j = 1; j < BASE_ORDER.length; j++) { var cand = BASE_ORDER[(i + j) % BASE_ORDER.length]; var cs = tileStats.byLayer[cand]; if (!cs || cs.loaded > 0 || cs.errors < 4) { next = cand; break; } }
           if (next && state.tileFallbacks.indexOf(k) < 0) {
             state.tileFallbacks.push(k);
             switchBase(next);
@@ -1766,9 +2095,15 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
           }
         }
       });
-      baseLayers[t.name] = layer;
+      if (t.labels) {
+        var parts = [layer];
+        t.labels.forEach(function (u) { parts.push(L.tileLayer(u, { maxZoom: 19, maxNativeZoom: 19, pane: 'labels' })); });
+        baseLayers[t.name] = L.layerGroup(parts);
+      } else {
+        baseLayers[t.name] = layer;
+      }
     });
-    baseLayers[TILES.terrain.name].addTo(map);
+    baseLayers[TILES.satellite.name].addTo(map);
     map.on('baselayerchange', function (ev) { Object.keys(TILES).forEach(function (k) { if (TILES[k].name === ev.name) state.activeBase = k; }); });
 
     var G = {};
@@ -1778,11 +2113,12 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     G.fireRoads = L.layerGroup();
     G.cameras = L.layerGroup();
     G.fires = L.layerGroup();
+    G.wind = L.layerGroup();
     var approx = function (mapNo, what) { return '<div class="small">approximate — traced from SOC Map ' + mapNo + ' and public street geometry (OpenStreetMap); ' + what + '</div>'; };
-    L.polygon(OVERLAYS.city, { color: '#94a3b8', weight: 1.5, dashArray: '6 6', fill: false }).bindPopup('<strong>Beverly Hills city boundary</strong><div class="small">public boundary geometry (OpenStreetMap)</div>').addTo(G.overlays);
-    L.polygon(OVERLAYS.trousdale, { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.16 }).bindPopup('<strong>Trousdale Estates</strong> — highest-risk area (Carla Ridge / Loma Vista Dr / N. Hillcrest Rd, up to Mulholland)' + approx('21', 'the city panhandle north of Doheny Rd')).addTo(G.overlays);
-    L.polygon(OVERLAYS.coldwater, { color: '#f97316', weight: 2, fillColor: '#f97316', fillOpacity: 0.16 }).bindPopup('<strong>Upper Coldwater Canyon / Loma Linda corridor</strong> — second-highest-risk area' + approx('21', 'the Coldwater finger north of Loma Linda Dr')).addTo(G.overlays);
-    OVERLAYS.franklin.forEach(function (ring, i) {
+    L.polygon(OVERLAYS.city, { color: '#e2e8f0', weight: 2, dashArray: '6 6', fill: false }).bindPopup('<strong>Beverly Hills city boundary</strong><div class="small">public boundary geometry (OpenStreetMap)</div>').addTo(G.overlays);
+    L.polygon(OVERLAYS.trousdale, { color: '#dc2626', weight: 2.5, fillColor: '#dc2626', fillOpacity: 0.16 }).bindPopup('<strong>Trousdale Estates</strong> — highest-risk area (Carla Ridge / Loma Vista Dr / N. Hillcrest Rd, up to Mulholland)' + approx('21', 'the city panhandle north of Doheny Rd')).addTo(G.overlays);
+    L.polygon(OVERLAYS.coldwater, { color: '#f97316', weight: 2.5, fillColor: '#f97316', fillOpacity: 0.16 }).bindPopup('<strong>Upper Coldwater Canyon / Loma Linda corridor</strong> — second-highest-risk area' + approx('21', 'the Coldwater finger north of Loma Linda Dr')).addTo(G.overlays);
+    OVERLAYS.franklin.forEach(function (ring) {
       L.polygon(ring, { color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.18 }).bindPopup('<strong>Franklin Canyon Park</strong> — Initial Action Zone of the Santa Monica Plan (Sept 2024)' + '<div class="small">park boundary from public geometry (OpenStreetMap, MRCA); Initial Action Zone per SOC printed pp. 36, 72 / PDF pp. 46, 82</div>').addTo(G.overlays);
     });
     (OVERLAYS.reservoirs || []).forEach(function (r) {
@@ -1792,7 +2128,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
       L.circleMarker(ig.pt, { radius: 8, color: '#a16207', fillColor: '#facc15', fillOpacity: 0.95, weight: 2 }).bindPopup('<strong>' + esc(ig.name) + '</strong><div class="small">SOC fire-spread simulation ignition point (printed p. 47 / PDF p. 57); placed at the street intersection from public geometry</div>').addTo(G.overlays);
     });
     OVERLAYS.evac.forEach(function (s) {
-      L.polyline(s.pts, { color: '#dc2626', weight: 5, opacity: 0.8 }).bindPopup('<strong>' + esc(s.name) + '</strong> — high-vulnerability evacuation roadway' + approx('23', 'the whole street is drawn; Map 23 marks the densest cluster along its northern half')).addTo(G.evac);
+      L.polyline(s.pts, { color: '#dc2626', weight: 5, opacity: 0.85 }).bindPopup('<strong>' + esc(s.name) + '</strong> — high-vulnerability evacuation roadway' + approx('23', 'the whole street is drawn; Map 23 marks the densest cluster along its northern half')).addTo(G.evac);
     });
     OVERLAYS.stations.forEach(function (s) {
       L.circleMarker(s.pt, { radius: 9, color: '#1e3a8a', fillColor: '#2563eb', fillOpacity: 0.95, weight: 2 }).bindTooltip(s.n, { permanent: false }).bindPopup('<strong>' + esc(s.n) + '</strong><br>' + esc(s.addr) + '<div class="small">address from the SOC (printed pp. 67–68 / PDF pp. 77–78); pin geocoded from that address (OpenStreetMap Nominatim)</div>').addTo(G.stations);
@@ -1800,15 +2136,17 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     CAMERAS.forEach(function (c) {
       L.circleMarker([c.lat, c.lon], { radius: 6, color: '#6b21a8', fillColor: '#a855f7', fillOpacity: 0.95, weight: 2 }).bindPopup('<strong>Camera: ' + esc(c.name) + '</strong><br><a href="' + esc(CAMERA_BASE + '?id=' + encodeURIComponent(c.id)) + '" target="_blank" rel="noopener">Open live camera</a><div class="small">ALERTCalifornia public camera (approximate location from its public list)</div>').addTo(G.cameras);
     });
+    // phase 4: six overlay switches folded into five that match how crews think about the map
+    G.soc = L.layerGroup([G.overlays, G.evac]);
+    G.assets = L.layerGroup([G.stations, G.cameras]);
     overlayGroups = G;
-    G.overlays.addTo(map); G.evac.addTo(map); G.stations.addTo(map); G.fireRoads.addTo(map); G.cameras.addTo(map); G.fires.addTo(map);
+    G.soc.addTo(map); G.assets.addTo(map); G.fireRoads.addTo(map); G.fires.addTo(map); G.wind.addTo(map);
     var layersCtl = L.control.layers(baseLayers, {
       'Fire roads (baked 2026-09-07 + live refresh)': G.fireRoads,
-      'SOC overlays (areas, Franklin Canyon, ignition points)': G.overlays,
-      'Evacuation segments (Map 23)': G.evac,
-      'Fire stations': G.stations,
-      'Cameras': G.cameras,
-      'Active fires (NIFC)': G.fires
+      'Risk areas, evacuation streets, ignition points (SOC)': G.soc,
+      'Fire stations and cameras': G.assets,
+      'Active fires (NIFC)': G.fires,
+      'Wind at the watch point': G.wind
     }, { collapsed: window.innerWidth < 700 }).addTo(map);
     try {
       var lcClose = document.createElement('a');
@@ -1831,12 +2169,28 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     state.activeBase = key;
     return true;
   }
+  // wind pill above the watch-point pin: this hour's forecast, colored by level
+  function updateWindPin() {
+    if (!map || !overlayGroups.wind) return;
+    var h = state.hours && state.hours[0];
+    if (!h || h.wind == null) { if (windPin) { overlayGroups.wind.removeLayer(windPin); windPin = null; } return; }
+    var lv = levelOf(h);
+    var comp = degToCompass(h.dir);
+    var html = '<div class="windpin ' + lv + '" style="transform:translate(-50%,calc(-100% - 46px))">' + arrowHTML(h.dir) + '<span>' + esc(comp) + ' ' + esc(h.wind) + (h.gust != null ? ' G' + esc(h.gust) : '') + ' mph</span></div>';
+    var icon = L.divIcon({ className: 'windicon', html: html, iconSize: null });
+    var pop = '<strong>Wind at the watch point</strong><br>' + esc(h.wind) + ' mph' + (comp ? ' from the ' + esc(comp) : '') + (h.gust != null ? ', gusts ' + esc(h.gust) + ' mph' : '') + (h.rh != null ? '<br>Humidity ' + esc(h.rh) + '%' : '') + '<div class="small">NWS forecast for the hour starting ' + esc(fmtDayHour(h.t)) + '. The arrow points the way the wind is blowing.</div>';
+    if (!windPin) {
+      windPin = L.marker(state.watch, { icon: icon, keyboard: false, zIndexOffset: 1000 }).bindPopup(pop).addTo(overlayGroups.wind);
+    } else {
+      windPin.setLatLng(state.watch); windPin.setIcon(icon); windPin.setPopupContent(pop);
+    }
+  }
   function roadKind(k) { return k || 'fire road'; }
   function addRoadLine(id, name, kind, pts, live) {
     if (state.roadIds[id]) return false;
     state.roadIds[id] = 1;
     var label = name || (kind === 'track (unpaved)' ? 'unpaved track' : roadKind(kind));
-    L.polyline(pts, { color: '#f97316', weight: name ? 4 : 3, opacity: name ? 0.9 : 0.75, className: 'fire-road' + (live ? ' live' : ' baked') })
+    L.polyline(pts, { color: '#f97316', weight: name ? 4 : 3, opacity: name ? 0.95 : 0.8, className: 'fire-road' + (live ? ' live' : ' baked') })
       .bindTooltip(label, { sticky: true })
       .bindPopup('<strong>' + esc(label) + '</strong><div class="small">' + esc(roadKind(kind)) + ' · OpenStreetMap' + (live ? ' (live refresh)' : ' (captured ' + esc(BAKED_META.captured) + ')') + '</div>')
       .addTo(overlayGroups.fireRoads);
@@ -1848,17 +2202,18 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     BAKED_FIRE_ROADS.forEach(function (w) { if (w.c && w.c.length > 1 && addRoadLine(w.i, w.n, w.k, w.c, false)) n++; });
     state.fireRoads = n;
     feedOK('roads');
-    el('fireroadNote').textContent = 'Fire roads: ' + n + ' road segments baked into this file from OpenStreetMap (captured ' + BAKED_META.captured + ', © OpenStreetMap contributors, ODbL) — drawn with no internet. Hover a road for its name.';
+    el('fireroadNote').textContent = 'Fire roads: ' + n + ' road segments baked into this file from OpenStreetMap (captured ' + BAKED_META.captured + ', © OpenStreetMap contributors, ODbL) — drawn with no internet. Hover or tap a road for its name.';
     return n;
   }
   function drawFireMarkers(items) {
     if (!overlayGroups.fires) return;
     overlayGroups.fires.clearLayers();
+    var fromName = shortName(state.area);
     items.forEach(function (it) {
       if (typeof it.lat !== 'number') return;
       var a = it.a;
       L.circleMarker([it.lat, it.lon], { radius: 9, color: '#7f1d1d', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 })
-        .bindPopup('<strong>' + esc(a.IncidentName || 'Incident') + '</strong><br>' + (a.IncidentSize == null ? 'acres not reported' : esc(a.IncidentSize) + ' acres') + ' · ' + (a.PercentContained == null ? 'containment not reported' : esc(Math.round(a.PercentContained)) + '% contained') + '<div class="small">NIFC WFIGS · ' + esc(it.dist != null ? it.dist.toFixed(1) + ' mi ' + it.dir + ' of Trousdale' : '') + '</div>')
+        .bindPopup('<strong>' + esc(a.IncidentName || 'Incident') + '</strong><br>' + (a.IncidentSize == null ? 'acres not reported' : esc(a.IncidentSize) + ' acres') + ' · ' + (a.PercentContained == null ? 'containment not reported' : esc(Math.round(a.PercentContained)) + '% contained') + '<div class="small">NIFC WFIGS · ' + esc(it.dist != null ? it.dist.toFixed(1) + ' mi ' + it.dir + ' of ' + fromName : '') + '</div>')
         .addTo(overlayGroups.fires);
     });
   }
@@ -2054,7 +2409,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
       var blob = new Blob([text], { type: 'text/plain' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'trousdale-wildfire-watch-notes.txt';
+      a.download = 'beverly-hills-wildfire-watch-notes.txt';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 2000);
     } catch (e) { quiet(e); el('notesStatus').textContent = 'Download blocked here — select the text and copy it instead.'; }
@@ -2078,16 +2433,25 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     if (!a) return false;
     state.area = a; state.watch = a.watch.slice();
     state.cond = { fcGust: null, fcRh: null, obGust: null, obRh: null, obWhen: null };
+    state.hours = null; state.hoursFailed = false; state.obsNearest = null; state.alertEvents = null;
     el('areaSelect').value = a.key;
     el('watchLabel').textContent = a.name;
     el('watchCoords').textContent = a.watch[0].toFixed(4) + ', ' + a.watch[1].toFixed(4);
+    el('crewArea').textContent = a.name;
     var bs = document.querySelectorAll('button[data-area-btn]');
     for (var j = 0; j < bs.length; j++) bs[j].className = bs[j].getAttribute('data-area-btn') === a.key ? 'on' : '';
     if (map) { map.setView(a.center, a.zoom); if (watchMarker) watchMarker.setLatLng(a.watch).setPopupContent('<strong>Watch point</strong><br>' + esc(a.name)); }
+    if (windPin && overlayGroups.wind) { overlayGroups.wind.removeLayer(windPin); windPin = null; }
     renderAllLinkRows();
     loadNotes();
     renderSunMoon();
     renderNearestStations();
+    renderCameras();
+    if (state.camTimer) refreshCameras();
+    if (state.lastFires) { try { renderFires(state.lastFires, true); } catch (e) { quiet(e); } } else el('firesFrom').textContent = shortName(a);
+    el('crewNow').innerHTML = ''; el('crewObs').textContent = ''; el('tlSummary').textContent = '';
+    setNote('timeline', 'Loading the hour-by-hour forecast…');
+    renderVerdict();
     if (state.windyArmed) loadWindy();
     loadWeather();
     return true;
@@ -2117,13 +2481,28 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
         var hourlyDone = fetchJSON(props.forecastHourly, NWS_HEADERS)
           .then(function (hj) { if (run === weatherRun) renderNow(hj); return hj; })
           .catch(function (e) { quiet(e); if (run === weatherRun) weatherFail('now'); return null; });
-        var obsDone = loadObservations(props.observationStations);
+        var gridDone = props.forecastGridData
+          ? fetchJSON(props.forecastGridData, NWS_HEADERS).then(hoursFromGrid).catch(function (e) { quiet(e); return null; })
+          : Promise.resolve(null);
+        var crewDone = Promise.all([gridDone, hourlyDone]).then(function (r) {
+          if (run !== weatherRun) return;
+          var hrs = r[0] || hoursFromHourly(r[1]);
+          state.hoursSource = r[0] ? 'grid' : 'hourly';
+          if (!hrs) { crewFail(); return; }
+          state.hours = hrs; state.hoursFailed = false;
+          // the hourly forecast often has no gust; the grid does, so the threshold alert uses it
+          if (state.cond.fcGust == null && hrs[0].gust != null) { state.cond.fcGust = hrs[0].gust; checkThresholds(); }
+          if (state.cond.fcRh == null && hrs[0].rh != null) { state.cond.fcRh = hrs[0].rh; checkThresholds(); }
+          renderTimeline(hrs); renderCrewNow(); renderVerdict(); updateWindPin();
+          feedOK('forecast');
+        }).catch(function (e) { quiet(e); if (run === weatherRun) crewFail(); });
+        var obsDone = loadObservations(props.observationStations, run);
         return fetchJSON(props.forecast, NWS_HEADERS)
           .then(function (dj) { return hourlyDone.then(function (hj) { if (run === weatherRun) renderDays(dj, hj); }); })
-          .catch(function (e) { quiet(e); if (run === weatherRun) { feedFail('forecast'); weatherFail('days'); } })
-          .then(function () { return obsDone; });
+          .catch(function (e) { quiet(e); if (run === weatherRun) { weatherFail('days'); } })
+          .then(function () { return Promise.all([obsDone, crewDone]); });
       })
-      .catch(function (e) { quiet(e); if (run !== weatherRun) return; el('zone').textContent = 'unavailable'; feedFail('forecast'); feedFail('obs'); weatherFail('now'); weatherFail('days'); setNote('obs', offline() ? NO_NET : OBS_DOWN); });
+      .catch(function (e) { quiet(e); if (run !== weatherRun) return; el('zone').textContent = 'unavailable'; feedFail('forecast'); feedFail('obs'); weatherFail('now'); weatherFail('days'); setNote('obs', offline() ? NO_NET : OBS_DOWN); crewFail(); });
     return Promise.all([a, p]);
   }
 
@@ -2138,7 +2517,7 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
     var w = loadWeather();
     refreshStart = Date.now();
     var f = fetchJSON(NIFC_URL)
-      .then(renderFires)
+      .then(function (j) { renderFires(j); })
       .catch(function (e) { quiet(e); feedFail('fires'); firesFail(); });
     if (state.camTimer || el('camSec').getBoundingClientRect().top < window.innerHeight) refreshCameras();
     refreshFireRoadsLive();
@@ -2173,12 +2552,12 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   storeSet('tww.opens', String(opens));
   var savedTheme = storeGet('tww.theme');
   applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+  applyView(storeGet('tww.view') === 'plan' ? 'plan' : 'crew');
   loadThresholdSettings();
   buildPicker();
   try { initMap(); } catch (e) { quiet(e); setHTML('map', '<div class="note" style="margin:12px">Map could not start in this browser — everything else on the page still works.</div>', ''); }
-  setArea(AREAS[0].key);              // renders links, notes, sun/moon, and starts the weather loaders
+  setArea(AREAS[0].key);              // renders links, notes, sun/moon, stations, cameras, and starts the weather loaders
   renderCalc();
-  renderCameras();
   watchCameras();
   watchWindy();
   try { if (map) drawBakedFireRoads(); } catch (e) { quiet(e); }
@@ -2188,10 +2567,11 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   try { setInterval(loadAll, 15 * 60 * 1000); } catch (e) {}
   // fires + stamp (weather already running from setArea)
   el('updated').textContent = nowStamp();
-  fetchJSON(NIFC_URL).then(renderFires).catch(function (e) { quiet(e); firesFail(); }).then(function () { setNote('status', 'Feeds checked ' + nowStamp() + ' · refreshes itself every 15 minutes while open', 'sub no-print'); });
+  fetchJSON(NIFC_URL).then(function (j) { renderFires(j); }).catch(function (e) { quiet(e); feedFail('fires'); firesFail(); }).then(function () { setNote('status', 'Feeds checked ' + nowStamp() + ' · refreshes itself every 15 minutes while open', 'sub no-print'); });
 
   // test / automation hooks (read-only helpers; nothing here touches the network on its own)
   window.TWW.setArea = setArea;
+  window.TWW.setView = applyView;
   window.TWW.measureBetween = measureBetween;
   window.TWW.setMeasureMode = setMeasureMode;
   window.TWW.mapClick = function (lat, lon) { if (!map) return false; map.fire('click', { latlng: L.latLng(lat, lon) }); return true; };
@@ -2208,7 +2588,10 @@ h2.stale{color:#f59e0b;border-bottom-color:#f59e0b}
   window.TWW.fireRoadCount = function () { return document.querySelectorAll('path.fire-road').length; };
   window.TWW.checkStale = checkStale;
   window.TWW.setLastOK = function (key, ms) { lastOK[key] = ms; checkStale(); };
+  // test hook: feed the conditions card a made-up 24 hours (no network) to see each level render
+  window.TWW.testHours = function (hrs) { state.hours = hrs; state.hoursSource = 'grid'; renderTimeline(hrs); renderCrewNow(); renderVerdict(); updateWindPin(); };
 })();
+
 </script>
 </body>
 </html>
